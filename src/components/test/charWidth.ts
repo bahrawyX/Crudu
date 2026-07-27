@@ -26,11 +26,11 @@ function keyOf(font: FontSpec): string {
  * same advance, so '0' stands for all of them — which is also what the CSS `ch`
  * unit is defined against.
  */
-export function measureCharWidth(font: FontSpec): number {
+export function measureCharWidth(font: FontSpec, remeasure = false): number {
   const key = keyOf(font)
   const cached = cache.get(key)
 
-  if (cached !== undefined) {
+  if (cached !== undefined && !remeasure) {
     return cached
   }
 
@@ -58,12 +58,48 @@ export function measureCharWidth(font: FontSpec): number {
  * uses. Measuring before this resolves would measure the fallback, and a font
  * swap mid-test would then shift every character on screen.
  */
-export async function whenFontReady(font: FontSpec): Promise<void> {
+/**
+ * Waits for the mono face, but not forever.
+ *
+ * The font is served by a CDN, and document.fonts.ready does not resolve while
+ * that request is in flight. Without the timeout a slow or blocked network
+ * leaves the surface rendering nothing at all, indefinitely — which is exactly
+ * what happened the first time e2e/views.spec.ts ran.
+ *
+ * On timeout the caller measures the fallback and renders. If the real face
+ * arrives afterwards, `whenFontChanges` fires and the caller measures again.
+ */
+export const FONT_WAIT_TIMEOUT_MS = 2_000
+
+export async function whenFontReady(
+  font: FontSpec,
+  timeoutMs: number = FONT_WAIT_TIMEOUT_MS,
+): Promise<void> {
   // document.fonts.load wants one family, not a stack.
   const primary = font.family.split(',')[0]?.trim() ?? font.family
+  // A rejection here would beat the timeout and leave the caller waiting on a
+  // promise that never resolves, which is the blank screen this guards against.
+  const loaded = document.fonts
+    .load(`${String(font.weight)} ${String(font.sizePx)}px ${primary}`)
+    .then(async () => document.fonts.ready)
+    .then(() => undefined)
+    .catch(() => undefined)
 
-  await document.fonts.load(`${String(font.weight)} ${String(font.sizePx)}px ${primary}`)
-  await document.fonts.ready
+  await Promise.race([
+    loaded,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, timeoutMs)
+    }),
+  ])
+}
+
+/** Fires when a face finishes loading after the surface has already rendered. */
+export function whenFontChanges(onChange: () => void): () => void {
+  document.fonts.addEventListener('loadingdone', onChange)
+
+  return () => {
+    document.fonts.removeEventListener('loadingdone', onChange)
+  }
 }
 
 /** Test seam. The cache is module level, so suites have to be able to clear it. */

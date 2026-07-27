@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { fitCharacterMeasure, isNarrowViewport } from '../ui/measure'
 
-import { measureCharWidth, whenFontReady } from './charWidth'
+import { measureCharWidth, whenFontChanges, whenFontReady } from './charWidth'
 import { CARET, SURFACE } from './constants'
 import type { SurfaceMetrics } from './context'
 
@@ -46,6 +46,7 @@ export function useSurfaceMetrics(): SurfaceMetrics | null {
 
   useEffect(() => {
     let cancelled = false
+    let rendered = false
 
     const resolve = (): void => {
       const narrow = isNarrowViewport(window.innerWidth)
@@ -59,7 +60,12 @@ export function useSurfaceMetrics(): SurfaceMetrics | null {
           return
         }
 
-        const charWidth = measureCharWidth(font)
+        // Re-measure once the surface is already up: this call can only be a
+        // late font arrival, and the cached width belongs to the fallback.
+        const charWidth = measureCharWidth(font, rendered)
+
+        rendered = true
+
         const next: SurfaceMetrics = {
           charWidth,
           fontSizePx,
@@ -75,11 +81,15 @@ export function useSurfaceMetrics(): SurfaceMetrics | null {
 
     resolve()
 
-    const stop = watchViewport(resolve)
+    const stopViewport = watchViewport(resolve)
+    // If the face turns up after the timeout, measure again. Characters shift
+    // once, before the first keystroke, rather than never appearing at all.
+    const stopFonts = whenFontChanges(resolve)
 
     return () => {
       cancelled = true
-      stop()
+      stopViewport()
+      stopFonts()
     }
   }, [])
 
