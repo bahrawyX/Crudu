@@ -21,6 +21,7 @@
   --color-muted: var(--muted);
   --color-muted-strong: var(--muted-strong);
   --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
   --color-error: var(--error);
   --color-error-strong: var(--error-strong);
   --color-hairline: var(--hairline);
@@ -81,9 +82,22 @@
     transition: color var(--duration-char) linear;
   }
 
+  /*
+   * Wrong and extra characters are both --error at full strength, separated by
+   * underline style. They used to differ by opacity, which put extra characters
+   * at 2.42:1 in light and made colour the only thing distinguishing two error
+   * states from each other. Style carries that distinction without touching
+   * contrast at all.
+   */
   .char[data-state='wrong'] {
     color: var(--error);
-    text-decoration: underline var(--error);
+    text-decoration: underline var(--underline-wrong) var(--error);
+    text-decoration-thickness: var(--error-underline-width);
+  }
+
+  .char[data-state='extra'] {
+    color: var(--error);
+    text-decoration: underline var(--underline-extra) var(--error);
     text-decoration-thickness: var(--error-underline-width);
   }
 

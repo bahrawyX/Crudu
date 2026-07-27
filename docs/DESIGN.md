@@ -22,7 +22,7 @@ implementation as a suggestion.
 
 ### 1.1 Colour
 
-Nine semantic names, two palettes. Switched by `data-theme` on `<html>`.
+Ten semantic names, two palettes. Switched by `data-theme` on `<html>`.
 
 | Token | Light | Dark | What it is |
 |---|---|---|---|
@@ -32,9 +32,31 @@ Nine semantic names, two palettes. Switched by `data-theme` on `<html>`.
 | `--muted` | `#7A7566` | `#75705F` | Pending characters on the test surface. Nothing else |
 | `--muted-strong` | `#63604F` | `#948F80` | Labels, inactive controls, secondary text |
 | `--accent` | `#0E6E75` | `#3FB3B8` | Caret, trace, active state, graph line, primary button |
-| `--error` | `#BF3B2E` | `#E0685A` | Wrong characters and their underline, graph error ticks |
+| `--accent-text` | `#0B5E64` | `#3FB3B8` | Accent-coloured text sitting on an accent tint |
+| `--error` | `#BF3B2E` | `#E0685A` | Wrong and extra characters, their underlines, graph error ticks |
 | `--error-strong` | `#A83527` | `#E0685A` | Error message text. Identical to `--error` in dark |
 | `--hairline` | `#D6D0C4` | `#2C3033` | Rules, dividers, borders, the trace track, bar tracks |
+
+`--accent-text` follows the same pattern as `--muted-strong` and
+`--error-strong`: same hue, darkened enough to clear 4.5:1 against the one
+background it is used on. `--accent` on the 12% accent tint measures 4.11:1,
+which misses; `--accent-text` measures 5.15:1. Reducing the tint does not fix
+this — 12% to 8% only reaches 4.31:1 — because the tint and the text move
+together. In dark, `--accent` already clears at 5.84:1, so `--accent-text` is
+the same colour there and exists only so components can name one token.
+
+**Narrow-viewport substitutes.** Below 620px the surface steps from 28px to
+20px, which moves pending and wrong characters off the 3:1 large-text
+requirement and onto the 4.5:1 small-text one. Two tokens rebind:
+
+| Token | Light | Dark | Replaces |
+|---|---|---|---|
+| `--muted-narrow` | `#6B6759` | `#878271` | `--muted`, 3.69:1 → 4.55:1 light, 3.59:1 → 4.63:1 dark |
+| `--error-narrow` | `#A83527` | `#E0685A` | `--error`, 4.35:1 → 5.26:1 light. Dark is unchanged, already 5.34:1 |
+
+The substitution happens at the breakpoint only. Desktop keeps the original
+values because pending characters are meant to recede, and darkening them on a
+phone is a smaller cost than darkening them everywhere.
 
 Two derived values, both computed from `--accent` so they follow the switch:
 
@@ -43,12 +65,16 @@ Two derived values, both computed from `--accent` so they follow the switch:
 | Caret glow | `0 0 6px color-mix(in oklab, var(--accent) 30%, transparent)` | `box-shadow` on the caret |
 | Chip tint | `color-mix(in oklab, var(--accent) 12%, transparent)` | Background of an active config chip |
 
-Two opacity-modified colours:
+One opacity-modified colour:
 
 | Modified | Expression | Where |
 |---|---|---|
-| Extra character | `--error` at `opacity: 0.6` | Characters typed past the end of a word |
 | Paused surface | whole block at `opacity: 0.5` + `blur(4px)` | Focus-lost state |
+
+Extra characters used to be a second: `--error` at `opacity: 0.6`. That measured
+2.42:1 in light and 2.69:1 in dark and failed at every size. They now render at
+full `--error` and are told apart from wrong characters by underline style —
+see 1.5.
 
 `--muted` has exactly one job: pending characters. Using it for labels would
 collapse the distinction between "text you have not typed yet" and "text that is
@@ -60,7 +86,7 @@ Two families.
 
 | Family | Stack | Loading |
 |---|---|---|
-| Mono | `'IBM Plex Mono', 'Commit Mono', monospace` | Google Fonts, weights 400 and 600, `display=block` |
+| Mono | `'IBM Plex Mono', ui-monospace, monospace` | Google Fonts, weights 400 and 600, `display=block` |
 | Sans | `'Instrument Sans', system-ui, sans-serif` | Google Fonts, weights 400, 500 and 600, `display=swap` |
 
 `display: block` on the mono face is not a preference. A FOUT that swaps metrics
@@ -78,18 +104,20 @@ The complete set of type treatments in the prototype:
 | 16px | 600 | Mono | 0.86 | −0.01em | Logo wordmark |
 | 20px | 400 | Sans | inherit | — | Empty-state heading |
 | 20px | 600 | Mono | inherit | — | Secondary stat values, bigram pairs. `tabular-nums` |
-| 28px | 420 | Mono | 46px | 0 | The test surface |
-| 20px | 420 | Mono | 34px | 0 | The test surface below 620px |
+| 28px | 400 | Mono | 46px | 0 | The test surface |
+| 20px | 400 | Mono | 34px | 0 | The test surface below 620px |
 | 56px | 600 | Mono | 1 | — | WPM and accuracy on results. `tabular-nums` |
 
 `tabular-nums` wherever a number can change in place. A count-up that shifts
 width as it runs looks like a bug.
 
-**Note.** The surface asks for weight 420 but the stylesheet loads IBM Plex Mono
-at 400 and 600 only, as static weights. 420 will resolve to 400 or be
-synthesised depending on the browser. `'Commit Mono'` is listed ahead of the
-generic fallback but is never loaded. Both are implementation details to settle
-in phase 2, not design decisions.
+**Note, resolved.** The prototype asked for weight 420 on the surface and listed
+`'Commit Mono'` ahead of the generic fallback. IBM Plex Mono is loaded as static
+400 and 600, so 420 was being synthesised, and a synthesised weight changes
+glyph advance — the cached `charWidth` would then disagree with what is painted
+and the caret would drift along the line. `'Commit Mono'` was never loaded, so
+naming it in a stack that cannot resolve it was noise. The surface is now 400
+and the stack is `'IBM Plex Mono', ui-monospace, monospace`.
 
 ### 1.3 Space
 
@@ -127,7 +155,8 @@ not a footer allowance. There is no footer.
 | Hairline | 1px |
 | Caret width | 2px |
 | Caret height | font size + 4px, so 32px at 28px type |
-| Wrong-character underline | 2px |
+| Wrong-character underline | 2px `solid` |
+| Extra-character underline | 2px `wavy` |
 | Graph stroke | 2px, `vector-effect: non-scaling-stroke` |
 | Median line | 1px, `vector-effect: non-scaling-stroke` |
 | Error tick | 2px wide, 8px tall, sitting on the graph baseline |
@@ -269,8 +298,15 @@ Four character states, and only four:
 |---|---|---|
 | Pending | `--muted` | — |
 | Correct | `--ink` | — |
-| Wrong | `--error` | 2px `--error` underline |
-| Extra | `--error` at 0.6 opacity | 2px `--error` underline |
+| Wrong | `--error` | 2px solid `--error` underline |
+| Extra | `--error` | 2px **wavy** `--error` underline |
+
+Wrong and extra are the same colour at full strength. What separates them is
+underline style. In the prototype they were separated by opacity — extra
+rendered `--error` at 0.6 — which failed contrast at every size and made the
+only difference between two error states a matter of how faint one of them was.
+Style carries the distinction at no cost to contrast, and satisfies invariant 9
+in the process.
 
 Colour never appears on the surface for any other reason. There is no
 highlighting, no active-word emphasis, no next-word preview treatment.
@@ -796,6 +832,12 @@ query.
 | Surface type | 28px | 20px |
 | Surface line height | 46px | 34px |
 | Surface measure | 62ch | 32ch |
+| `--muted` | `#7A7566` / `#75705F` | `#6B6759` / `#878271` |
+| `--error` | `#BF3B2E` / `#E0685A` | `#A83527` / `#E0685A` |
+
+The two colour steps are not a separate decision. They exist because the type
+step takes the surface below 24px, which raises its contrast requirement from
+3:1 to 4.5:1. Anything that changes the narrow font size has to revisit them.
 
 Nothing else changes. Every other screen is fluid: `max-width` plus 24px
 gutters, with `flex-wrap` on the headline row, the secondary stats and the
@@ -833,42 +875,84 @@ prototype's implementation of this does not work; the intent is what to build.
 
 ### 7.4 Contrast
 
-Measured against the tokens in section 1. Thresholds: 4.5:1 for text under 24px
-regular or under 18.66px bold, 3:1 for larger text and for user-interface
-components.
+Every pairing below is computed from the section 1 hex values with the WCAG
+relative-luminance formula, and recomputed from `src/styles/tokens.css` by
+`tests/contrast.test.ts` on every run. If a token changes and this table does
+not, the suite fails. Phase 5 adds an axe pass over the built app; that checks
+the rendered result, this checks the source values, and the source values are
+where a regression starts.
 
-Most pairings clear comfortably: `--ink` on `--canvas` is 11.72:1 light and
-13.76:1 dark; `--ink` on `--surface` is 12.72:1 and 12.51:1; `--muted-strong` on
-`--canvas` is 5.08:1 and 5.51:1; `--canvas` on `--accent` — the primary button —
-is 4.81:1 and 7.08:1.
+Thresholds are WCAG 2.2 AA: **4.5:1** for text under 24px regular or under
+18.66px bold, **3:1** for larger text and for user-interface components.
 
-Seven pairings do not clear. They are recorded here as measurements, not as
-proposed changes:
+**Text**
 
 | Pairing | Light | Dark | Needs | Where |
 |---|---|---|---|---|
-| `--muted` on `--canvas` | 3.69:1 | 3.59:1 | 3:1 at 28px, **4.5:1 at 20px** | Pending characters. Passes wide, fails below 620px |
-| `--error` on `--canvas` | 4.35:1 | 5.34:1 | 3:1 at 28px, **4.5:1 at 20px** | Wrong characters. Light fails below 620px; dark passes |
-| `--error` at 0.6 on `--canvas` | 2.42:1 | 2.69:1 | 3:1 / 4.5:1 | Extra characters. Fails at every size in both themes |
-| `--accent` on the 12% accent tint | **4.11:1** | 5.84:1 | 4.5:1 | Active config chip label. Light fails |
-| `--hairline` on `--canvas` | 1.23:1 | 1.34:1 | 3:1 | Dividers, median line, bar tracks, switch borders when off |
-| `--hairline` on `--surface` | 1.34:1 | 1.22:1 | 3:1 | Card border, seen from inside the card |
-| `--surface` on `--canvas` | 1.09:1 | 1.10:1 | 3:1 | Card fill against the page |
+| `--ink` on `--canvas` | 11.72 | 13.76 | 4.5 | Body, labels, nav, correct characters |
+| `--ink` on `--surface` | 12.72 | 12.51 | 4.5 | Card body, card bigram pairs |
+| `--muted-strong` on `--canvas` | 5.08 | 5.51 | 4.5 | Labels, inactive controls, counter, hint, deltas |
+| `--muted-strong` on `--surface` | 5.52 | 5.01 | 4.5 | Card label |
+| `--accent` on `--canvas` | 4.81 | 7.08 | 4.5 | Delta when up, "Best at this setting", improved values |
+| `--accent-text` on the 12% accent tint | 5.15 | 5.84 | 4.5 | Active config chip label |
+| `--error-strong` on `--canvas` | 5.26 | 5.34 | 4.5 | Storage error message |
+| `--canvas` on `--accent` | 4.81 | 7.08 | 4.5 | Primary button label, selected text |
 
-Two notes on the last three rows. `--hairline` and `--surface` are boundary
-treatments rather than components that convey state, and WCAG 1.4.11 does not
-require 3:1 for a purely decorative divider. The switch *border* is the
-exception: it is the off-state indicator, and at 1.23:1 the off state is not
-perceivable by border alone — though the `off` label carries the state in text,
-which satisfies the requirement by a different route.
+**The test surface**
 
-The paused state multiplies everything by `opacity: 0.5`. `--ink` at 0.5 on
-`--canvas` measures 2.85:1 light and 4.32:1 dark. This is a deliberate
-"suspended" affordance and the overlay line sits above it at full opacity, so
-the blurred text is decorative while paused.
+| Pairing | Light | Dark | Needs | Where |
+|---|---|---|---|---|
+| `--muted` on `--canvas` | 3.69 | 3.59 | 3 | Pending characters at 28px |
+| `--ink` on `--canvas` | 11.72 | 13.76 | 3 | Correct characters at 28px |
+| `--error` on `--canvas` | 4.35 | 5.34 | 3 | Wrong and extra characters at 28px |
+| `--muted-narrow` on `--canvas` | 4.55 | 4.63 | 4.5 | Pending characters at 20px, below 620px |
+| `--ink` on `--canvas` | 11.72 | 13.76 | 4.5 | Correct characters at 20px |
+| `--error-narrow` on `--canvas` | 5.26 | 5.34 | 4.5 | Wrong and extra characters at 20px |
 
-Pending and correct characters are distinguished by colour alone — `--muted`
-against `--ink`, at 3.17:1 light and 3.83:1 dark. Wrong characters carry a 2px
-underline as a second signal, per invariant 9. The pending/correct distinction
-has no second signal available: both are the same glyph in the same position,
-and the only thing that can differ is colour.
+The narrow rows are why `--muted-narrow` and `--error-narrow` exist. At 28px the
+surface sits above the 24px large-text threshold and needs 3:1; at 20px it needs
+4.5:1, and `--muted` misses in both themes while light `--error` misses too.
+
+**Interface components**
+
+| Pairing | Light | Dark | Needs | Where |
+|---|---|---|---|---|
+| `--accent` on `--canvas` | 4.81 | 7.08 | 3 | Caret, trace fill, graph line, focus ring, switch border when on |
+| `--error` on `--canvas` | 4.35 | 5.34 | 3 | Wrong-character underline, graph error ticks |
+| `--accent` on `--hairline` | 3.90 | 5.29 | 3 | Weakness bar fill |
+| `--muted-strong` on `--hairline` | 4.12 | 4.12 | 3 | Weakness bar fill, under-sampled |
+
+**Boundary treatments, below 3:1 and left alone**
+
+| Pairing | Light | Dark | Where |
+|---|---|---|---|
+| `--hairline` on `--canvas` | 1.23 | 1.34 | Dividers, median line, bar tracks, switch border when off |
+| `--hairline` on `--surface` | 1.34 | 1.22 | Card border, seen from inside the card |
+| `--surface` on `--canvas` | 1.09 | 1.10 | Card fill against the page |
+
+WCAG 1.4.11 covers components that convey state and boundaries needed to operate
+the interface. A decorative divider is neither, and raising `--surface` away from
+`--canvas` far enough to clear 3:1 would turn a quiet card into a panel and
+change the design rather than fix it.
+
+The switch border is the one arguable case: it is the off-state indicator, and
+at 1.23:1 the off state is not perceivable from the border alone. The control
+carries its state in the word `off` inside it, which meets the requirement by a
+different route, so the border stays decorative.
+
+**Two states that are not threshold failures**
+
+The paused surface multiplies everything by `opacity: 0.5` under a 4px blur.
+`--ink` at 0.5 on `--canvas` measures 2.85:1 light and 4.32:1 dark. That is the
+point of the state: the text is deliberately suspended, and the overlay line
+sits above it at full opacity.
+
+Pending against correct is distinguished by colour alone — `--muted` against
+`--ink` at 3.17:1 light and 3.83:1 dark, and `--muted-narrow` against `--ink` at
+2.58:1 and 2.97:1 narrow. Neither is a UI component and both clear their own
+contrast against the canvas, so no AA rule applies. It is recorded because it is
+the constraint in the other direction: darkening `--muted` to clear the canvas
+moves it towards `--ink`, and the narrow values are as far as that can go before
+pending and correct stop reading as different states. Wrong and extra characters
+have their underlines; pending and correct are the same glyph in the same
+position, so colour is the only channel there is.

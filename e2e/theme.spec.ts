@@ -17,6 +17,7 @@ const SEMANTIC_TOKENS = [
   '--muted',
   '--muted-strong',
   '--accent',
+  '--accent-text',
   '--error',
   '--error-strong',
   '--hairline',
@@ -94,4 +95,69 @@ test('every token changes value between the two themes', async ({ page }) => {
   for (const token of SEMANTIC_TOKENS) {
     expect(dark[token], `${token} is identical in both themes`).not.toBe(light[token])
   }
+})
+
+/**
+ * The narrow substitutes. Below 620px the surface steps from 28px to 20px and
+ * --muted and --error rebind to values that clear 4.5:1 rather than 3:1.
+ *
+ * The ordering here is the fiddly part and the reason this is an e2e test
+ * rather than a string match: the narrow block's bare :root selector would
+ * leave a dark-system phone on the light substitutes, so a second media query
+ * scoped to :root:not([data-theme]) has to follow it. Nothing in the CSS source
+ * makes that visible. Only the cascade does.
+ */
+const NARROW = { width: 375, height: 812 }
+const WIDE = { width: 1280, height: 800 }
+
+async function readTwo(page: Page): Promise<{ muted: string; error: string }> {
+  return page.evaluate(() => {
+    const computed = getComputedStyle(document.documentElement)
+
+    return {
+      muted: computed.getPropertyValue('--muted').trim(),
+      error: computed.getPropertyValue('--error').trim(),
+    }
+  })
+}
+
+test('the narrow breakpoint substitutes muted and error in every theme state', async ({ page }) => {
+  await page.goto('/')
+
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => {
+      document.documentElement.setAttribute('data-theme', value)
+    }, theme)
+
+    await page.setViewportSize(WIDE)
+    const wide = await readTwo(page)
+
+    await page.setViewportSize(NARROW)
+    const narrow = await readTwo(page)
+
+    expect(narrow.muted, `${theme}: --muted did not substitute`).not.toBe(wide.muted)
+
+    if (theme === 'light') {
+      expect(narrow.error, 'light: --error did not substitute').not.toBe(wide.error)
+    } else {
+      // Dark --error already clears 4.5:1 at 5.34:1, so its substitute is itself.
+      expect(narrow.error, 'dark: --error should be unchanged').toBe(wide.error)
+    }
+  }
+
+  // No attribute, dark system preference, narrow. This is the case the second
+  // media query exists for.
+  await page.evaluate(() => {
+    document.documentElement.removeAttribute('data-theme')
+  })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.setViewportSize(NARROW)
+  const systemDarkNarrow = await readTwo(page)
+
+  await page.evaluate(() => {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  })
+  const forcedDarkNarrow = await readTwo(page)
+
+  expect(systemDarkNarrow).toEqual(forcedDarkNarrow)
 })

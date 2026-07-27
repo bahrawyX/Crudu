@@ -10,6 +10,13 @@
 export const SURFACE = {
   fontSizePx: 28,
   fontSizeNarrowPx: 20,
+  /**
+   * 400, not the 420 the prototype asked for. IBM Plex Mono is loaded as static
+   * 400 and 600, so 420 was being synthesised, and a synthesised weight changes
+   * glyph advance. The cached charWidth would then disagree with what is
+   * painted, and the caret would drift along the line.
+   */
+  fontWeight: 400,
   lineHeightPx: 46,
   lineHeightNarrowPx: 34,
   /** Three lines visible, active line held in the middle, completed lines scroll up. */
@@ -53,7 +60,14 @@ export const CHAR = {
   /** Wrong characters carry an underline as well as the error colour, so that
    * colour is never the only signal (invariant 9). */
   wrongUnderlinePx: 2,
-  extraCharOpacity: 0.6,
+  /**
+   * Wrong and extra are both --error at full strength, told apart by underline
+   * style. They used to differ by opacity: extra rendered at 0.6, which put it
+   * at 2.42:1 against the light canvas and meant the only thing separating two
+   * error states was how faint one of them was.
+   */
+  wrongUnderlineStyle: 'solid',
+  extraUnderlineStyle: 'wavy',
 } as const
 
 export const CONFIG_BAR = {

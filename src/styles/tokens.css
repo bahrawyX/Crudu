@@ -18,9 +18,19 @@
   --light-muted: #7a7566;
   --light-muted-strong: #63604f;
   --light-accent: #0e6e75;
+  --light-accent-text: #0b5e64;
   --light-error: #bf3b2e;
   --light-error-strong: #a83527;
   --light-hairline: #d6d0c4;
+
+  /* Narrow-viewport substitutes. Below 620px the surface steps from 28px to
+   * 20px, which moves pending and wrong characters off the 3:1 large-text bar
+   * and onto the 4.5:1 small-text one. --light-muted clears 3.69:1 at 28px and
+   * misses at 20px; these two clear 4.5:1. themes.css rebinds at the
+   * breakpoint. Desktop keeps the original values so pending characters go on
+   * receding as far as the design intends. */
+  --light-muted-narrow: #6b6759;
+  --light-error-narrow: #a83527;
 
   /* ---- Palette: dark --------------------------------------------------- */
   --dark-canvas: #16181a;
@@ -29,15 +39,24 @@
   --dark-muted: #75705f;
   --dark-muted-strong: #948f80;
   --dark-accent: #3fb3b8;
+  /* Dark --accent already clears 4.5:1 on the accent tint at 5.84:1, so
+   * --accent-text is the same colour here. The token exists in both palettes so
+   * that components can reference one name. */
+  --dark-accent-text: #3fb3b8;
   --dark-error: #e0685a;
   --dark-error-strong: #e0685a;
   --dark-hairline: #2c3033;
+
+  /* Narrow-viewport substitutes, as above. Dark --error clears 4.5:1 at 5.34:1
+   * unchanged, so only --muted is substituted. */
+  --dark-muted-narrow: #878271;
+  --dark-error-narrow: #e0685a;
 
   /* ---- Type families ---------------------------------------------------
    * The mono face carries the test surface, so it is loaded with
    * font-display: block. A metric swap mid test would shift every character.
    */
-  --font-mono: 'IBM Plex Mono', 'Commit Mono', ui-monospace, monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
 
   /* ---- Type scale ------------------------------------------------------ */
@@ -51,7 +70,11 @@
   --text-display: 56px;
 
   --weight-regular: 400;
-  --weight-surface: 420;
+  /* The prototype asked for 420. IBM Plex Mono is loaded as static 400 and 600,
+   * so 420 was being synthesised, which changes glyph advance and would put the
+   * cached charWidth out of step with what is painted. Kept as its own token
+   * because the surface weight is a decision, not an inheritance. */
+  --weight-surface: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
 
@@ -118,7 +141,13 @@
   --caret-height: calc(var(--text-surface) + var(--caret-height-slack));
   --caret-glow-blur: 6px;
   --caret-glow-alpha: 30%;
+  /* Wrong and extra characters are both --error at full strength. What separates
+   * them is the underline style, not the colour and not the opacity. They used
+   * to differ by opacity alone, which failed contrast at every size and made
+   * colour the only signal twice over. */
   --error-underline-width: 2px;
+  --underline-wrong: solid;
+  --underline-extra: wavy;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --bar-height: 6px;
@@ -153,5 +182,4 @@
   --paused-opacity: 0.5;
   --chip-tint-alpha: 12%;
   --chip-dim-opacity: 0.6;
-  --extra-char-opacity: 0.6;
 }

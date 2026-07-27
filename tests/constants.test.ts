@@ -74,6 +74,13 @@ describe('test surface geometry matches docs/DESIGN.md', () => {
     expect(SURFACE.lineHeightPx).toBe(46)
   })
 
+  it('sets the surface to a weight that is actually loaded', () => {
+    // 420 would be synthesised from the static 400 face, which changes glyph
+    // advance and puts the cached charWidth out of step with what is painted.
+    expect([400, 600]).toContain(SURFACE.fontWeight)
+    expect(SURFACE.fontWeight).toBe(400)
+  })
+
   it('steps down to 20px on a 34px baseline below 620px', () => {
     expect(SURFACE.fontSizeNarrowPx).toBe(20)
     expect(SURFACE.lineHeightNarrowPx).toBe(34)
@@ -131,10 +138,12 @@ describe('character feedback stays fast and carries a second signal', () => {
 
   it('underlines wrong characters, so colour is never the only signal', () => {
     expect(CHAR.wrongUnderlinePx).toBe(2)
+    expect(CHAR.wrongUnderlineStyle).toBe('solid')
   })
 
-  it('dims extra characters rather than hiding them', () => {
-    expect(CHAR.extraCharOpacity).toBe(0.6)
+  it('separates extra from wrong by underline style, not by colour or opacity', () => {
+    expect(CHAR.extraUnderlineStyle).toBe('wavy')
+    expect(CHAR.extraUnderlineStyle).not.toBe(CHAR.wrongUnderlineStyle)
   })
 })
 

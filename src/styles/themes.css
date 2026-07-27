@@ -1,14 +1,14 @@
 /*
  * The theme switch. No JavaScript is involved: setting data-theme on <html>
- * rebinds the nine semantic colour tokens and every dependent value recomputes
- * in the same style pass.
+ * rebinds the semantic colour tokens and every dependent value recomputes in
+ * the same style pass.
  *
  * With no data-theme attribute present the system preference decides, which is
  * what ARCHITECTURE.md section 3 item 11 asks for. An explicit data-theme
  * always wins over the media query because :root[data-theme='...'] carries an
  * attribute selector and the media-query rule is scoped to :root:not([data-theme]).
  *
- * Every declaration block below must declare the same nine properties. A test
+ * Every declaration block below must declare the same ten properties. A test
  * in tests/tokens.test.ts fails the build if one drifts.
  */
 
@@ -21,6 +21,7 @@
   --muted: var(--light-muted);
   --muted-strong: var(--light-muted-strong);
   --accent: var(--light-accent);
+  --accent-text: var(--light-accent-text);
   --error: var(--light-error);
   --error-strong: var(--light-error-strong);
   --hairline: var(--light-hairline);
@@ -34,6 +35,7 @@
   --muted: var(--dark-muted);
   --muted-strong: var(--dark-muted-strong);
   --accent: var(--dark-accent);
+  --accent-text: var(--dark-accent-text);
   --error: var(--dark-error);
   --error-strong: var(--dark-error-strong);
   --hairline: var(--dark-hairline);
@@ -48,6 +50,7 @@
     --muted: var(--dark-muted);
     --muted-strong: var(--dark-muted-strong);
     --accent: var(--dark-accent);
+    --accent-text: var(--dark-accent-text);
     --error: var(--dark-error);
     --error-strong: var(--dark-error-strong);
     --hairline: var(--dark-hairline);
@@ -61,12 +64,45 @@
   --chip-tint: color-mix(in oklab, var(--accent) var(--chip-tint-alpha), transparent);
 }
 
-/* The surface type steps down below the narrow breakpoint. 620px is repeated
- * from --breakpoint-narrow because @media cannot read custom properties. */
+/*
+ * The narrow viewport.
+ *
+ * 620px is repeated from --breakpoint-narrow because @media cannot read a
+ * custom property.
+ *
+ * Two things change together, and they change together for one reason. The
+ * surface steps from 28px to 20px, which takes pending and wrong characters
+ * below the 24px threshold and moves them from the 3:1 large-text requirement
+ * to the 4.5:1 small-text one. --muted misses that bar in both themes and light
+ * --error misses it too, so both rebind to the narrow substitutes. Desktop is
+ * left alone: pending characters are meant to recede, and dimming them further
+ * on a phone would be the wrong trade.
+ */
 @media (max-width: 620px) {
   :root {
     --text-surface: var(--text-surface-narrow);
     --leading-surface: var(--leading-surface-narrow);
     --measure-surface: var(--measure-surface-narrow);
+  }
+
+  :root,
+  :root[data-theme='light'] {
+    --muted: var(--light-muted-narrow);
+    --error: var(--light-error-narrow);
+  }
+
+  :root[data-theme='dark'] {
+    --muted: var(--dark-muted-narrow);
+    --error: var(--dark-error-narrow);
+  }
+}
+
+/* Narrow and system-dark with no explicit theme. Must follow the block above:
+ * the bare :root selector there would otherwise leave a dark-system phone on
+ * the light substitutes. */
+@media (prefers-color-scheme: dark) and (max-width: 620px) {
+  :root:not([data-theme]) {
+    --muted: var(--dark-muted-narrow);
+    --error: var(--dark-error-narrow);
   }
 }
