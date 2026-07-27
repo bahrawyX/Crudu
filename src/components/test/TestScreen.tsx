@@ -1,10 +1,7 @@
 import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 
-import { createEngine } from '../../engine'
 import type { Engine, TestConfig } from '../../engine'
-import { activeValue, usePrefsStore } from '../../stores/prefsStore'
-import { createWordSource } from '../../words/source'
 
 import { Caret } from './Caret'
 import { ConfigBar } from './ConfigBar'
@@ -31,39 +28,22 @@ import { useSurfaceMetrics } from './useSurfaceMetrics'
 /** Time mode needs a clock to notice expiry. 100ms is finer than the display. */
 const TICK_MS = 100
 
-function newTest(config: TestConfig) {
-  return {
-    config,
-    wordSource: createWordSource(config),
-    id: crypto.randomUUID(),
-    startedAt: Date.now(),
-  }
+export type TestScreenProps = {
+  readonly engine: Engine
+  readonly config: TestConfig
+  readonly onRestart: () => void
 }
 
-export function TestScreen() {
-  const prefs = usePrefsStore()
+export function TestScreen({ engine, config, onRestart }: TestScreenProps) {
   const metrics = useSurfaceMetrics()
-
-  const config = useMemo<TestConfig>(
-    () => ({
-      mode: prefs.mode,
-      value: activeValue(prefs),
-      punctuation: prefs.punctuation,
-      numbers: prefs.numbers,
-      adaptive: false,
-    }),
-    [prefs],
-  )
-
-  // Created once. Configuration changes go through reset, which keeps the
-  // subscriptions alive rather than remounting every <Word> on a chip click.
-  const [engine] = useState<Engine>(() => createEngine(newTest(config)))
   const store = useMemo<SurfaceStore | null>(
     () => (metrics === null ? null : createSurfaceStore(engine, metrics.capacity)),
     [engine, metrics],
   )
   const firstRun = useRef(true)
 
+  // A configuration change starts a new test with new words. The engine is
+  // reset rather than replaced, so every <Word> subscription survives.
   useEffect(() => {
     if (firstRun.current) {
       firstRun.current = false
@@ -71,8 +51,8 @@ export function TestScreen() {
       return
     }
 
-    engine.reset(newTest(config))
-  }, [engine, config])
+    onRestart()
+  }, [config, onRestart])
 
   useEffect(() => store?.start(), [store])
 
@@ -82,7 +62,7 @@ export function TestScreen() {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        engine.reset(newTest(config))
+        onRestart()
       }
     }
 
@@ -91,7 +71,7 @@ export function TestScreen() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [engine, config])
+  }, [onRestart])
 
   // The engine owns no clock. Something has to tell it the time ran out, and it
   // is not the keystroke handler's job.

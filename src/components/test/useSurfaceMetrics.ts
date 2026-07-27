@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+import { fitCharacterMeasure, isNarrowViewport } from '../ui/measure'
+
 import { measureCharWidth, whenFontReady } from './charWidth'
 import { CARET, SURFACE } from './constants'
 import type { SurfaceMetrics } from './context'
@@ -15,25 +17,6 @@ import type { SurfaceMetrics } from './context'
 
 const FAMILY = "'IBM Plex Mono', ui-monospace, monospace"
 
-/** Narrowest line worth reading. Below this the surface would be unusable. */
-const MIN_CAPACITY = 20
-
-/**
- * How many characters actually fit.
- *
- * docs/DESIGN.md specifies a 62 character measure, which at 28px IBM Plex Mono
- * needs about 1090px of viewport. Between the 620px breakpoint and that width
- * the prototype simply overflows, because it lets CSS wrap and never asks how
- * wide the line is. This does ask, once, from window.innerWidth — which is a
- * viewport property, not a per-element layout read, and is sampled at mount and
- * on resize rather than on a keystroke.
- */
-function fittedCapacity(designCapacity: number, charWidth: number, gutterPx: number): number {
-  const usable = window.innerWidth - gutterPx * 2
-
-  return Math.max(MIN_CAPACITY, Math.min(designCapacity, Math.floor(usable / charWidth)))
-}
-
 function watchViewport(onChange: () => void): () => void {
   // matchMedia is a media-query subscription, not a layout read. resize fires
   // outside the keystroke path and only changes the line measure.
@@ -47,8 +30,6 @@ function watchViewport(onChange: () => void): () => void {
     window.removeEventListener('resize', onChange)
   }
 }
-
-const GUTTER_PX = 24
 
 function sameMetrics(a: SurfaceMetrics | null, b: SurfaceMetrics): boolean {
   return (
@@ -67,7 +48,7 @@ export function useSurfaceMetrics(): SurfaceMetrics | null {
     let cancelled = false
 
     const resolve = (): void => {
-      const narrow = window.innerWidth <= SURFACE.narrowBreakpointPx
+      const narrow = isNarrowViewport(window.innerWidth)
       const fontSizePx = narrow ? SURFACE.fontSizeNarrowPx : SURFACE.fontSizePx
       const lineHeightPx = narrow ? SURFACE.lineHeightNarrowPx : SURFACE.lineHeightPx
       const designCapacity = narrow ? SURFACE.measureNarrowCh : SURFACE.measureCh
@@ -84,7 +65,7 @@ export function useSurfaceMetrics(): SurfaceMetrics | null {
           fontSizePx,
           lineHeightPx,
           caretHeightPx: fontSizePx + CARET.heightSlackPx,
-          capacity: fittedCapacity(designCapacity, charWidth, GUTTER_PX),
+          capacity: fitCharacterMeasure(designCapacity, charWidth, window.innerWidth),
         }
 
         // Identity matters: a new object rebuilds the surface store.

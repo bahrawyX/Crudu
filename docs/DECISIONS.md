@@ -472,3 +472,101 @@ describe the design's vocabulary rather than the engine's.
 This cost a real bug: the first render had the CSS on `wrong` and the engine
 emitting `incorrect`, so mistyped characters showed no error styling at all until
 it was caught on screen.
+
+---
+
+## Phase 3 — persistence and results
+
+### 3.1 The history list
+
+**Mine, not the design's.** `docs/DESIGN.md` 3.8 records that the prototype has
+no history screen and no nav entry for one, and batch 3 needs per-config
+personal bests and history.
+
+It borrows wholesale from the weakness report in 3.6, which is the only list
+pattern the design has: a label row with a count on the right, rows with
+reserved columns, a hairline every fifth row. Columns are date, config, WPM,
+accuracy, tags.
+
+It sits on the results screen rather than on a route of its own, because the
+navigation the design drew has four entries and history is not one of them.
+Inventing a fifth would be designing a screen outside this batch. Ten rows are
+shown there; the component renders any number, and the 500 test case is measured
+in tests/storage/history.test.ts.
+
+### 3.2 One measure policy, for every screen
+
+**Decision.** `src/components/ui/measure.ts` owns it, and no component decides
+for itself.
+
+- Screens measured in pixels — results, progress, weakness, settings, history —
+  are fluid: `width: 100%`, a `max-width` token, a 24px gutter. `max-width`
+  degrades continuously, so they need no intermediate breakpoint and get none.
+- Screens measured in characters — only the test surface — fit to the viewport:
+  `min(design measure, floor((innerWidth − 48) / charWidth))`. Characters cannot
+  be made narrower, so the count is what gives.
+- Below 620px both change together: type steps down, `--muted-narrow` and
+  `--error-narrow` bind, and the character measure drops to 32.
+
+**Why.** The gap DECISIONS 2.4 patched for the surface is the same gap on every
+screen, and patching it per component is how a codebase ends up with four
+different answers. The pixel screens turn out to need nothing at all, which is
+worth stating explicitly so nobody adds a breakpoint to them later.
+
+### 3.3 A phone test is kept, marked, and compared against other phone tests
+
+**Decision.** A test tagged `inputSource: 'virtual'` persists exactly like any
+other and carries a `phone` marker in history. Personal bests and the seven day
+median are scoped to the input source as well as to the configuration.
+
+**Why.** Marking it stops a phone-typed 40 WPM reading as a regression against a
+desk. Scoping the comparison stops it *being* one: without that, a week of
+commute practice drags the median down and every desk test afterwards reports a
+gain it did not earn.
+
+It is the same argument as the bigram exclusion in DECISIONS 1.1, applied one
+level up. Thumb typing and touch typing are different motor tasks, and a
+comparison across them measures the instrument rather than the person. Nobody
+loses their comparison; they get the right one.
+
+### 3.4 Deltas are bytes with an escape, not a bare Int16Array
+
+**Decision.** `deltas` is a `Uint8Array`, with 255 escaping to an `Int32Array`
+of the values that did not fit.
+
+**Why.** The brief says Int16Array and also says a 400 keystroke test must pack
+to under 1200 bytes. Both cannot hold: 400 two-byte deltas is 800 bytes, leaving
+400 for 400 characters and every other field, which is exactly zero headroom.
+ARCHITECTURE.md 6.2 quotes about 900 bytes as the target, and a byte per delta
+is how that number is reachable — an inter-keystroke gap is under 255ms for
+anyone typing at all.
+
+The escape array is Int32 rather than Int16 because a gap can exceed 32 seconds
+when someone stops without blurring, and a lossless round trip has to survive it.
+
+Measured: a realistic 400 keystroke test with errors, extras and edits packs to
+under 1200 bytes; a clean one to under 1000. Both are asserted.
+
+### 3.5 The theme attribute is only written when the user has chosen one
+
+**Decision.** `applyTheme(null)` removes `data-theme`. Boot writes the attribute
+only when localStorage actually held a preference, and the subscription writes it
+only when the theme itself changed.
+
+**Why, and it was a bug first.** Applying the stored default at boot pinned every
+first-time visitor to light and silently defeated `prefers-color-scheme`, which
+DECISIONS 0.5 exists to preserve. Worse, subscribing to the whole store meant
+that touching any config chip wrote `data-theme="light"` — so the theme was
+correct until the user changed the test length, and then it was not.
+
+Caught by taking a screenshot on a dark system and seeing a light page.
+
+### 3.6 The only run at a configuration is not a personal best
+
+**Decision.** `buildHistory` badges a row `best` only when the scope holds more
+than one test.
+
+**Why.** A record needs something to have been beaten. Badging the sole data
+point says the opposite of what it means, and it disagreed with the results
+screen, which already required beating an existing record before it would say
+"Best at this setting". Two components, one word, two meanings.

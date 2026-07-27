@@ -212,6 +212,51 @@ export function bigramLatencies(
   return samples
 }
 
+export type SecondSample = {
+  /** Whole seconds since the first keystroke. */
+  readonly second: number
+  /** Net WPM within that second: correct characters, over five, per minute. */
+  readonly wpm: number
+  /** Whether anything was got wrong in that second. Drawn as a baseline tick. */
+  readonly hadError: boolean
+}
+
+/**
+ * The WPM curve the results graph draws.
+ *
+ * Every second from the first keystroke to the last is present, including the
+ * ones with nothing in them: a gap drawn as a gap is the truth, and a line that
+ * skips it would flatter a test the user walked away from.
+ */
+export function wpmSeries(log: readonly Keystroke[]): readonly SecondSample[] {
+  const chars = charEntries(log)
+  const last = chars.at(-1)
+
+  if (last === undefined) {
+    return []
+  }
+
+  const total = Math.floor(last.t / CONSISTENCY_SAMPLE_MS) + 1
+  const correct = new Map<number, number>()
+  const errored = new Set<number>()
+
+  for (const entry of chars) {
+    const second = Math.floor(entry.t / CONSISTENCY_SAMPLE_MS)
+
+    if (entry.ok) {
+      correct.set(second, (correct.get(second) ?? 0) + 1)
+    } else {
+      errored.add(second)
+    }
+  }
+
+  return Array.from({ length: total }, (_value, second) => ({
+    second,
+    wpm: ((correct.get(second) ?? 0) / CHARS_PER_WORD) * (60_000 / CONSISTENCY_SAMPLE_MS),
+    hadError: errored.has(second),
+  }))
+}
+
 export function computeMetrics(log: readonly Keystroke[], durationMs: number): Metrics {
   const chars = countChars(log)
 

@@ -8,6 +8,7 @@ import {
   countChars,
   netWpm,
   rawWpm,
+  wpmSeries,
 } from '../../src/engine'
 import type { Keystroke } from '../../src/engine'
 
@@ -229,6 +230,44 @@ describe('rule 6: bigram latency', () => {
 
   it('forms no pair from a single keystroke', () => {
     expect(bigramLatencies([correct('o', 0)], 'physical')).toEqual([])
+  })
+})
+
+describe('the WPM curve the results graph draws', () => {
+  it('reports net WPM for every second from the first keystroke to the last', () => {
+    // Six correct in second 0, three in second 2, none in second 1.
+    const log = [...run(6, 0, 100), ...run(3, 2_000, 100)]
+
+    expect(wpmSeries(log)).toEqual([
+      { second: 0, wpm: 72, hadError: false },
+      { second: 1, wpm: 0, hadError: false },
+      { second: 2, wpm: 36, hadError: false },
+    ])
+  })
+
+  it('keeps an empty second rather than closing the gap', () => {
+    // A line that skipped the pause would flatter a test the user walked away
+    // from. The graph shows the gap because the gap happened.
+    expect(wpmSeries([correct('a', 0), correct('b', 5_000)])).toHaveLength(6)
+  })
+
+  it('flags the seconds something was got wrong', () => {
+    const log = [correct('a', 0), wrong('z', 'b', 100), correct('c', 1_100)]
+    const series = wpmSeries(log)
+
+    expect(series[0]?.hadError).toBe(true)
+    expect(series[1]?.hadError).toBe(false)
+  })
+
+  it('counts only correct characters, so the curve is net rather than raw', () => {
+    const log = [correct('a', 0), wrong('z', 'b', 100), extraChar('x', 200)]
+
+    expect(wpmSeries(log)[0]?.wpm).toBe(12)
+  })
+
+  it('is empty for a log with no characters in it', () => {
+    expect(wpmSeries([])).toEqual([])
+    expect(wpmSeries([backspace(0)])).toEqual([])
   })
 })
 

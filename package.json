@@ -20,8 +20,10 @@
     "words": "node scripts/build-wordlists.mjs"
   },
   "dependencies": {
+    "idb-keyval": "^6.3.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "uplot": "^1.6.32",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

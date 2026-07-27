@@ -43,7 +43,9 @@ export {
   countChars,
   netWpm,
   rawWpm,
+  wpmSeries,
 } from './metrics'
+export type { SecondSample } from './metrics'
 
 export { createInitialState, reduce } from './reducer'
 
