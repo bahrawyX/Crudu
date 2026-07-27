@@ -16,8 +16,17 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'src/words/**'],
-      // No thresholds yet. Phase 1 sets 100% branch coverage on src/engine/,
-      // which is the only place a threshold means anything.
+      // The engine is pure functions with no I/O, so there is no excuse for an
+      // untested branch in it. Everything else is held to nothing yet; a
+      // threshold on a module that cannot be fully exercised is theatre.
+      thresholds: {
+        'src/engine/**': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+      },
     },
   },
 })
