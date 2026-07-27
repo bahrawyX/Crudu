@@ -1,0 +1,72 @@
+/*
+ * The theme switch. No JavaScript is involved: setting data-theme on <html>
+ * rebinds the nine semantic colour tokens and every dependent value recomputes
+ * in the same style pass.
+ *
+ * With no data-theme attribute present the system preference decides, which is
+ * what ARCHITECTURE.md section 3 item 11 asks for. An explicit data-theme
+ * always wins over the media query because :root[data-theme='...'] carries an
+ * attribute selector and the media-query rule is scoped to :root:not([data-theme]).
+ *
+ * Every declaration block below must declare the same nine properties. A test
+ * in tests/tokens.test.ts fails the build if one drifts.
+ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --canvas: var(--light-canvas);
+  --surface: var(--light-surface);
+  --ink: var(--light-ink);
+  --muted: var(--light-muted);
+  --muted-strong: var(--light-muted-strong);
+  --accent: var(--light-accent);
+  --error: var(--light-error);
+  --error-strong: var(--light-error-strong);
+  --hairline: var(--light-hairline);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: var(--dark-canvas);
+  --surface: var(--dark-surface);
+  --ink: var(--dark-ink);
+  --muted: var(--dark-muted);
+  --muted-strong: var(--dark-muted-strong);
+  --accent: var(--dark-accent);
+  --error: var(--dark-error);
+  --error-strong: var(--dark-error-strong);
+  --hairline: var(--dark-hairline);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --canvas: var(--dark-canvas);
+    --surface: var(--dark-surface);
+    --ink: var(--dark-ink);
+    --muted: var(--dark-muted);
+    --muted-strong: var(--dark-muted-strong);
+    --accent: var(--dark-accent);
+    --error: var(--dark-error);
+    --error-strong: var(--dark-error-strong);
+    --hairline: var(--dark-hairline);
+  }
+}
+
+/* Derived colours. They read the semantic tokens, so they follow the switch. */
+:root {
+  --caret-glow: 0 0 var(--caret-glow-blur)
+    color-mix(in oklab, var(--accent) var(--caret-glow-alpha), transparent);
+  --chip-tint: color-mix(in oklab, var(--accent) var(--chip-tint-alpha), transparent);
+}
+
+/* The surface type steps down below the narrow breakpoint. 620px is repeated
+ * from --breakpoint-narrow because @media cannot read custom properties. */
+@media (max-width: 620px) {
+  :root {
+    --text-surface: var(--text-surface-narrow);
+    --leading-surface: var(--leading-surface-narrow);
+    --measure-surface: var(--measure-surface-narrow);
+  }
+}

@@ -1,0 +1,24 @@
+
+# <type>(<scope>): <subject, imperative, under 60 chars>
+#
+# What:
+# - concrete changes, one bullet each
+#
+# Why:
+# - the reason, citing SPEC or ARCHITECTURE section where relevant
+#
+# Verified:
+# - what you ran and what it reported
+#
+# ---------------------------------------------------------------------------
+# Types:  feat  fix  perf  refactor  test  docs  chore  style
+# Scopes: engine  metrics  storage  adaptive  test-surface  results  progress
+#         ui  perf  setup
+#
+# Verified: is not optional. If nothing was run, write
+#   Verified: not yet covered by tests
+# so the gap is visible in the log rather than implied.
+#
+# Never commit with a subject like "updates", "wip", "fixes" or "changes".
+# One commit per logical unit of work. It should be revertable on its own.
+# ---------------------------------------------------------------------------

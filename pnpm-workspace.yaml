@@ -1,0 +1,4 @@
+# esbuild ships a per-platform binary from its postinstall script. Vite cannot
+# bundle without it, so it is the one dependency allowed to run install scripts.
+allowBuilds:
+  esbuild: true
