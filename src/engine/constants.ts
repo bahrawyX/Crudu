@@ -36,3 +36,19 @@ export const WORD_CHUNK_SIZE = 50
 
 /** Consistency is sampled over raw WPM computed in windows of this width. */
 export const CONSISTENCY_SAMPLE_MS = 1000
+
+/**
+ * Time mode tops up whenever fewer than this many words remain ahead of the
+ * cursor. Equal to the chunk size, so the engine always holds between one and
+ * two chunks of runway and never an unbounded list.
+ */
+export const WORD_LOW_WATER = WORD_CHUNK_SIZE
+
+/**
+ * KeyboardEvent.keyCode while an IME is composing. Together with an empty
+ * `code` this is how a soft keyboard announces itself. SPEC 1.7.
+ */
+export const VIRTUAL_KEY_CODE = 229
+
+/** Consistency needs at least this many sampled seconds to mean anything. */
+export const MIN_CONSISTENCY_SAMPLES = 2
