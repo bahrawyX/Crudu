@@ -842,7 +842,7 @@ Most pairings clear comfortably: `--ink` on `--canvas` is 11.72:1 light and
 `--canvas` is 5.08:1 and 5.51:1; `--canvas` on `--accent` — the primary button —
 is 4.81:1 and 7.08:1.
 
-Six pairings do not clear. They are recorded here as measurements, not as
+Seven pairings do not clear. They are recorded here as measurements, not as
 proposed changes:
 
 | Pairing | Light | Dark | Needs | Where |
@@ -852,9 +852,10 @@ proposed changes:
 | `--error` at 0.6 on `--canvas` | 2.42:1 | 2.69:1 | 3:1 / 4.5:1 | Extra characters. Fails at every size in both themes |
 | `--accent` on the 12% accent tint | **4.11:1** | 5.84:1 | 4.5:1 | Active config chip label. Light fails |
 | `--hairline` on `--canvas` | 1.23:1 | 1.34:1 | 3:1 | Dividers, median line, bar tracks, switch borders when off |
+| `--hairline` on `--surface` | 1.34:1 | 1.22:1 | 3:1 | Card border, seen from inside the card |
 | `--surface` on `--canvas` | 1.09:1 | 1.10:1 | 3:1 | Card fill against the page |
 
-Two notes on the last two rows. `--hairline` and `--surface` are boundary
+Two notes on the last three rows. `--hairline` and `--surface` are boundary
 treatments rather than components that convey state, and WCAG 1.4.11 does not
 require 3:1 for a purely decorative divider. The switch *border* is the
 exception: it is the off-state indicator, and at 1.23:1 the off state is not
