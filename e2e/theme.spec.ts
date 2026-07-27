@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { type Page, expect, test } from '@playwright/test'
 
 /**
  * Proves the claim that tokens.css and themes.css make: swapping the theme is a
@@ -24,7 +24,7 @@ const SEMANTIC_TOKENS = [
 
 type TokenMap = Record<string, string>
 
-async function readTokens(page: import('@playwright/test').Page): Promise<TokenMap> {
+async function readTokens(page: Page): Promise<TokenMap> {
   return page.evaluate((names: readonly string[]) => {
     const computed = getComputedStyle(document.documentElement)
     const out: Record<string, string> = {}
