@@ -159,3 +159,164 @@ from it.
 unborn branch is not a merge, so the phase-end merge described in CLAUDE.md
 would have degenerated into a fast-forward and the tag would not have marked a
 rollback point.
+
+---
+
+## Phase 1 — engine
+
+### 1.1 Virtual-keyboard tests are excluded from bigram aggregation
+
+**Decision.** A keydown with `code === ''` or `keyCode === 229` marks the test
+`inputSource: 'virtual'`. A virtual test records WPM, raw WPM, accuracy,
+consistency, its keystroke log and its history entry exactly as any other, and
+contributes nothing at all to the bigram table.
+
+**Why.** Thumb typing and touch typing are different motor tasks. A same-finger
+bigram like `ol` is slow on a physical keyboard because one finger has to travel
+twice; on a phone it is two thumbs and the cost sits somewhere else entirely. A
+bigram table that mixes the two describes neither, and weakness is scored against
+the user's own median, so a handful of phone tests would drag that median and
+reclassify perfectly good physical transitions as weak.
+
+The adaptive engine is the entire differentiator. Having less data in it is a
+cost; having wrong data in it is a defect.
+
+**Cost.** Someone who practises mostly on a tablet gets WPM history and no
+drills. That is the honest outcome — there is nothing useful to drill — and it
+beats silently generating drills from noise.
+
+### 1.2 The virtual tag is sticky, and set before classification
+
+**Decision.** One virtual keystroke tags the test for its whole duration. The tag
+is applied to every keydown the engine receives, including ones the classifier
+then throws away.
+
+**Why.** The brief tags tests, not keystrokes, and a test that starts on a laptop
+and continues on a phone holds data from two motor tasks with no way to tell
+afterwards which pairs came from which.
+
+Tagging before classification matters because soft keyboards frequently report
+`key: 'Unidentified'` with `keyCode: 229`, which the classifier discards. If the
+tag applied only to accepted keystrokes, the strongest available signal that a
+soft keyboard is in use would be the one signal that never reached it.
+
+The asymmetry settles it: a test wrongly tagged virtual loses its bigrams, and a
+test wrongly tagged physical corrupts the table for good.
+
+### 1.3 The log carries a kind, and backspaces are in it
+
+**Decision.** Every entry has `kind: 'char' | 'missed' | 'backspace' |
+'delete-word'`. Metrics filter on kind. Edits count towards nothing.
+
+**Why.** ARCHITECTURE.md 6.1 says store the raw log, because aggregates are not
+reversible. A log without backspaces cannot drive a replay and cannot show where
+someone hesitated and corrected. But an edit is not a keypress in the accuracy
+sense either: counting a backspace as an incorrect keypress would penalise
+correcting a typo twice.
+
+A discriminated kind keeps both properties. Nothing is thrown away, and each
+metric reads only the entries it is defined over.
+
+### 1.4 Missed characters are logged, not derived
+
+**Decision.** When space advances a word with characters left, one `missed` entry
+is appended per remaining character, at the timestamp of that space.
+
+**Why.** Accuracy is measured at the moment of the keypress. Someone who
+backspaces into an incomplete word and advances past it incomplete a second time
+has paid twice, and the log records both. Deriving `missed` from final word state
+would count only the last one and forgive the first.
+
+### 1.5 A boundary space is correct only when the word was exact
+
+**Decision.** The space that advances a word is `ok` only when
+`typed === text`. Any incomplete, incorrect or over-typed word makes its
+terminating space an incorrect keypress.
+
+**Why.** The net WPM definition says "correct characters including correct
+spaces", which only means anything if some spaces are incorrect. Roughly one
+character in six of English text is a space, so counting every boundary space as
+correct would let a test typed entirely wrong still earn a sixth of its net WPM.
+
+### 1.6 A bigram spanning a pause is discarded
+
+**Decision.** Every log entry records how many pauses had completed when it was
+made. A pair whose two entries disagree is dropped.
+
+**Why.** This one is not in the brief and it is not optional. Paused time is
+subtracted from `t`, which is right for elapsed time and catastrophic for bigram
+latency: a keystroke before a two-minute blur and the one after it can appear
+30ms apart, and that pair would enter the table as the fastest transition the
+user has ever performed. The gap check cannot catch it, because after subtraction
+there is no gap left to see.
+
+### 1.7 A key pressed while paused resumes and is then typed
+
+**Decision.** A key arriving in `paused` resumes the clock at its own timestamp
+and is then processed as an ordinary keystroke.
+
+**Why.** `docs/DESIGN.md` 3.3 puts "Click or press any key to resume" on screen,
+so a key press has to resume. The alternative — resume but swallow the key —
+loses the first character after every blur, which on a test surface reads as a
+dropped keystroke rather than as a feature.
+
+### 1.8 Consistency sampling
+
+**Decision.** The timeline is divided into 1000ms buckets from `t = 0`. A bucket
+is sampled when it holds at least one character entry and is not overlapped by an
+inter-keystroke gap longer than 1000ms. Population standard deviation. Fewer than
+two samples reports 100. The result is clamped at 0.
+
+**Why.** "Excluded from consistency sampling" needed a mechanism. Excluding only
+empty buckets does not work: a 1050ms gap sitting across two adjacent seconds
+leaves both of them non-empty. Testing each bucket for overlap against the gap
+window catches every case.
+
+Population rather than sample deviation because these are all the seconds there
+were, not a draw from a larger set. The clamp exists because σ can exceed μ in a
+very bursty test, and a negative consistency is not a number anyone can read.
+
+**Known approximation, deliberately kept.** The final bucket of a test is usually
+a partial second and is counted whole, which flatters a burst at the end.
+Monkeytype does the same. Correcting it would produce a figure that matches no
+competitor, for an error of a fraction of a percent.
+
+### 1.9 A keystroke at or past expiry is discarded
+
+**Decision.** In time mode, a keystroke whose timestamp puts elapsed at or past
+the configured duration completes the test and is not accepted.
+
+**Why.** The alternative lets a keystroke at 30.4s count toward a 30s test, which
+is both wrong and exploitable. The word the user was in stays active, so its
+untyped characters stay `pending` and never become `missed`: they are neither
+correct nor incorrect and enter no metric, which is what rule 4 asks for.
+
+### 1.10 Words, ids and start times come from the caller
+
+**Decision.** The reducer takes words as data. The engine wrapper owns the word
+source. `id` and `startedAt` are passed in.
+
+**Why.** `crypto.randomUUID()`, `Date.now()` and a word generator are all impure.
+Any of them inside the engine would make it untestable with fixed values, and the
+golden suite depends on running one exact sequence and getting one exact answer.
+It also lets phase 4 substitute the adaptive generator without touching the
+reducer.
+
+### 1.11 An extra file in src/engine
+
+**Decision.** `src/engine/engine.ts` holds the instance: subscriptions, word
+source, cached result. `index.ts` stays a barrel. CLAUDE.md's tree lists neither.
+
+**Why.** The alternative was a hundred lines of mutable subscription plumbing
+inside the barrel. Keeping the only stateful file in the engine separate and
+named makes it obvious where the mutation lives, which matters when everything
+around it is pure.
+
+### 1.12 Timestamps are clamped monotonic
+
+**Decision.** A timestamp earlier than the highest one seen is clamped to it.
+
+**Why.** Browsers do not normally deliver these, but the property suite does, and
+a negative elapsed value poisons every metric downstream. Clamping is the only
+option that keeps the log replayable: dropping the event would lose a real
+keystroke, and accepting it would make `t` run backwards.

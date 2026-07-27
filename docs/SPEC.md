@@ -30,6 +30,10 @@ idle ──first accepted character──> running ──blur──> paused
   backspace or an ignored key does not start the test.
 - `pause` from `idle` is a no-op. There is nothing to pause and no clock to stop.
 - `resume` from any state other than `paused` is a no-op.
+- **A key that arrives while `paused` resumes the clock at its own timestamp and
+  is then processed normally.** `docs/DESIGN.md` 3.3 puts "Click or press any key
+  to resume" on screen, so a key press has to resume. Dropping the keystroke that
+  did the resuming would lose the first character after every blur.
 - `complete` is terminal. Every input, pause and resume is ignored. Only `reset`
   leaves it.
 - `reset` returns to `idle` with a fresh word list and an empty keystroke log.
@@ -329,7 +333,12 @@ further correction to be replayed.
 
 `pause(timeStamp)` from `running` records the pause start. `resume(timeStamp)`
 adds `timeStamp - pauseStart` to the accumulated paused total and returns to
-`running`.
+`running`. A keystroke arriving while paused does the same thing first and is
+then typed, per section 0.
+
+**Resolved — a blur that lands after expiry completes the test rather than
+pausing it.** The test was already over at the moment the clock passed the
+duration; a blur cannot retroactively suspend time that had already run out.
 
 **Resolved — a bigram pair that spans a pause is discarded.** Paused time is
 subtracted from `t`, so a keystroke before a two-minute blur and the one after it
