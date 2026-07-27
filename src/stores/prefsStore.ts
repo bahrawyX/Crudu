@@ -13,6 +13,9 @@ import { create } from 'zustand'
  */
 
 export type Theme = 'light' | 'dark'
+
+/** null means follow prefers-color-scheme. It is not the same as light. */
+export type ThemePreference = Theme | null
 export type TestMode = 'time' | 'words'
 
 /** Durations offered in time mode, in seconds. */
@@ -22,7 +25,7 @@ export const TIME_VALUES = [15, 30, 60, 120] as const
 export const WORD_VALUES = [10, 25, 50, 100] as const
 
 export type Prefs = {
-  readonly theme: Theme
+  readonly theme: ThemePreference
   readonly mode: TestMode
   readonly timeValue: number
   readonly wordCount: number
@@ -30,10 +33,12 @@ export type Prefs = {
   readonly numbers: boolean
   readonly stopOnError: boolean
   readonly caretBlink: boolean
+  /** Whether generated words are weighted towards weak transitions. */
+  readonly adaptive: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: 'light',
+  theme: null,
   mode: 'time',
   timeValue: 30,
   wordCount: 25,
@@ -41,16 +46,18 @@ export const DEFAULT_PREFS: Prefs = {
   numbers: false,
   stopOnError: false,
   caretBlink: true,
+  adaptive: true,
 }
 
 type PrefsActions = {
-  setTheme: (theme: Theme) => void
+  setTheme: (theme: ThemePreference) => void
   setMode: (mode: TestMode) => void
   setValue: (value: number) => void
   togglePunctuation: () => void
   toggleNumbers: () => void
   toggleStopOnError: () => void
   toggleCaretBlink: () => void
+  toggleAdaptive: () => void
   reset: () => void
 }
 
@@ -79,6 +86,9 @@ export const usePrefsStore = create<PrefsStore>((set) => ({
   toggleCaretBlink: () => {
     set((state) => ({ caretBlink: !state.caretBlink }))
   },
+  toggleAdaptive: () => {
+    set((state) => ({ adaptive: !state.adaptive }))
+  },
   reset: () => {
     set({ ...DEFAULT_PREFS })
   },
@@ -95,6 +105,7 @@ export function selectPrefs(state: PrefsStore): Prefs {
     numbers: state.numbers,
     stopOnError: state.stopOnError,
     caretBlink: state.caretBlink,
+    adaptive: state.adaptive,
   }
 }
 

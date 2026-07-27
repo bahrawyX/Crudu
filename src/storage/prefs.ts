@@ -36,7 +36,8 @@ function coerce(raw: unknown): Prefs {
   const wordCount = value['wordCount']
 
   return {
-    theme: typeof theme === 'string' && THEMES.has(theme) ? (theme as Prefs['theme']) : DEFAULT_PREFS.theme,
+    // Anything unrecognised, including a missing key, means follow the system.
+    theme: typeof theme === 'string' && THEMES.has(theme) ? (theme as Prefs['theme']) : null,
     mode: typeof mode === 'string' && MODES.has(mode) ? (mode as Prefs['mode']) : DEFAULT_PREFS.mode,
     timeValue: isFiniteNumber(timeValue) ? timeValue : DEFAULT_PREFS.timeValue,
     wordCount: isFiniteNumber(wordCount) ? wordCount : DEFAULT_PREFS.wordCount,
@@ -44,6 +45,7 @@ function coerce(raw: unknown): Prefs {
     numbers: value['numbers'] === true,
     stopOnError: value['stopOnError'] === true,
     caretBlink: value['caretBlink'] !== false,
+    adaptive: value['adaptive'] !== false,
   }
 }
 

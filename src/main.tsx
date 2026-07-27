@@ -11,20 +11,19 @@ import 'uplot/dist/uPlot.min.css'
 // Synchronous, before the first paint, which is the whole reason preferences
 // live in localStorage rather than in IndexedDB. An asynchronous read here would
 // show the default theme first and correct it a frame later.
-const { prefs, stored } = readStoredPrefs()
+const { prefs } = readStoredPrefs()
 
 usePrefsStore.setState(prefs)
 
-// Only write data-theme when the user has actually chosen. Writing the default
-// would pin every first-time visitor to light and silently defeat
-// prefers-color-scheme, which DECISIONS 0.5 exists to preserve.
-if (stored) {
-  applyTheme(prefs.theme)
-}
+// A null theme means follow prefers-color-scheme, and applyTheme removes the
+// attribute for it. Gating on "has anything been stored" was not enough:
+// preferences are written on every config change, so the record exists long
+// before anyone opens a theme control, and the stored default pinned every
+// visitor to light the first time they touched a chip. DECISIONS 0.5, 4.4.
+applyTheme(prefs.theme)
 
 // Only on an actual theme change. Subscribing to the whole store would apply
-// the theme every time a config chip moved, which would pin a first-time
-// visitor to light the moment they touched anything.
+// the theme every time a config chip moved.
 usePrefsStore.subscribe((state, previous) => {
   if (state.theme !== previous.theme) {
     applyTheme(state.theme)

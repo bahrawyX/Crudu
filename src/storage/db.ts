@@ -1,10 +1,10 @@
-import { createStore, del, get, getMany, keys, set } from 'idb-keyval'
+import { createStore, del, get, getMany, keys, set, setMany } from 'idb-keyval'
 
 import type { InputSource, Metrics, TestConfig, TestResult } from '../engine'
 
 import type { PackedLog } from './pack'
 import { packLog, unpackLog } from './pack'
-import { LOG_RETENTION_DAYS, SCHEMA_VERSION, metaKey, parseKey, testKey } from './schema'
+import { LOG_RETENTION_DAYS, SCHEMA_VERSION, bigramStatKey, metaKey, parseKey, testKey } from './schema'
 
 /**
  * Test history in IndexedDB.
@@ -127,6 +127,44 @@ export async function pruneLogs(
   await set(metaKey('lastPrunedAt'), now, store)
 
   return { logsDropped, testsKept: tests.length }
+}
+
+export type BigramRecord = {
+  readonly pair: string
+  readonly ewmaMs: number
+  readonly n: number
+  readonly errorRate: number
+  readonly lastSeen: number
+}
+
+/** bigram:{pair}, one row per transition, exactly as the Postgres table will be. */
+export async function loadBigrams(): Promise<readonly BigramRecord[]> {
+  try {
+    const all = await keys(store)
+    const bigramKeys = all.filter(
+      (key): key is string => typeof key === 'string' && parseKey(key)?.namespace === 'bigram',
+    )
+
+    if (bigramKeys.length === 0) {
+      return []
+    }
+
+    const records = await getMany<BigramRecord | undefined>(bigramKeys, store)
+
+    return records.filter((record): record is BigramRecord => record !== undefined)
+  } catch {
+    return []
+  }
+}
+
+export async function saveBigrams(records: readonly BigramRecord[]): Promise<boolean> {
+  try {
+    await setMany(records.map((record) => [bigramStatKey(record.pair), record]), store)
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function readMeta<T>(name: string): Promise<T | undefined> {
