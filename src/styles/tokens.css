@@ -148,6 +148,12 @@
   --error-underline-width: 2px;
   --underline-wrong: solid;
   --underline-extra: wavy;
+  /* Half the solid weight. A wave's amplitude scales with its thickness, so a
+   * 2px wave takes about three times the vertical space of a 2px rule and reads
+   * as a red smear rather than as a wave. Judged on screen at 4x, not from the
+   * stylesheet. It is also the right hierarchy: a wrong character is a harder
+   * error than an extra one and should carry the heavier mark. */
+  --extra-underline-width: 1px;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --bar-height: 6px;
@@ -182,4 +188,16 @@
   --paused-opacity: 0.5;
   --chip-tint-alpha: 12%;
   --chip-dim-opacity: 0.6;
+
+  /* ---- Interaction states ----------------------------------------------
+   * Not in the prototype. docs/DESIGN.md 3.8 records that hover, pressed and
+   * disabled are unspecified for every control; these are proposed here and
+   * argued in docs/DECISIONS.md 2.1. The shape follows the one hover rule the
+   * prototype does have, `a:hover { color: var(--ink) }`: hover strengthens the
+   * foreground rather than introducing a new colour.
+   */
+  --chip-tint-alpha-hover: 18%;
+  --hover-wash-alpha: 6%;
+  --pressed-opacity: 0.72;
+  --disabled-opacity: 0.45;
 }

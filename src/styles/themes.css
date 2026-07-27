@@ -62,6 +62,13 @@
   --caret-glow: 0 0 var(--caret-glow-blur)
     color-mix(in oklab, var(--accent) var(--caret-glow-alpha), transparent);
   --chip-tint: color-mix(in oklab, var(--accent) var(--chip-tint-alpha), transparent);
+  --chip-tint-hover: color-mix(
+    in oklab,
+    var(--accent) var(--chip-tint-alpha-hover),
+    transparent
+  );
+  --hover-wash: color-mix(in oklab, var(--ink) var(--hover-wash-alpha), transparent);
+  --accent-pressed: color-mix(in oklab, var(--accent) 88%, var(--ink));
 }
 
 /*

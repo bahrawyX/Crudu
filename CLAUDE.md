@@ -129,7 +129,7 @@ Do not add a dependency without saying why in the commit body. Do not add a UI c
 
 ```
 src/
-  engine/       types.ts reducer.ts metrics.ts keystrokes.ts index.ts   # no React
+  engine/       types.ts reducer.ts metrics.ts keystrokes.ts engine.ts index.ts  # no React
   adaptive/     bigrams.ts weakness.ts generator.ts
   storage/      prefs.ts db.ts pack.ts schema.ts
   words/        en-1000.json en-5000.json
@@ -140,5 +140,13 @@ src/
   styles/       tokens.css themes.css
 tests/          engine/ adaptive/ storage/
 e2e/            latency.spec.ts
-docs/           ARCHITECTURE.md SPEC.md DESIGN.md DECISIONS.md
+docs/           ARCHITECTURE.md SPEC.md DESIGN.md DECISIONS.md design-prototype.html
 ```
+
+`engine.ts` is the only file in `src/engine/` that holds mutable state: the
+subscription sets, the word source and the cached result. Everything around it
+is pure, and keeping the mutation in one named file is what makes that visible.
+
+`docs/design-prototype.html` is the Claude Design output, imported verbatim.
+`docs/DESIGN.md` documents it. The prototype is authoritative on what the design
+is; DESIGN.md is authoritative on what it means and is the one later batches read.

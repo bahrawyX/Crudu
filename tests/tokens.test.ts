@@ -196,7 +196,8 @@ describe('the narrow viewport rebinds the two colours it has to', () => {
 })
 
 describe('wrong and extra characters are told apart by underline style', () => {
-  const wrong = blockContaining(indexCss, ".char[data-state='wrong']")
+  // The engine's CharState calls it `incorrect`; docs/DESIGN.md calls it wrong.
+  const wrong = blockContaining(indexCss, ".char[data-state='incorrect']")
   const extra = blockContaining(indexCss, ".char[data-state='extra']")
 
   it('renders both at full error strength', () => {
@@ -214,6 +215,15 @@ describe('wrong and extra characters are told apart by underline style', () => {
     expect(extra).toContain('var(--underline-extra)')
     expect(tokensCss).toContain('--underline-wrong: solid')
     expect(tokensCss).toContain('--underline-extra: wavy')
+  })
+
+  it('draws the wave at half the weight of the rule', () => {
+    // A wave's amplitude scales with its thickness, so 2px of wave reads as a
+    // smear. Judged on screen, recorded in docs/DECISIONS.md 2.2.
+    expect(wrong).toContain('var(--error-underline-width)')
+    expect(extra).toContain('var(--extra-underline-width)')
+    expect(tokensCss).toContain('--error-underline-width: 2px')
+    expect(tokensCss).toContain('--extra-underline-width: 1px')
   })
 
   it('keeps no extra-character opacity token', () => {
