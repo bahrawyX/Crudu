@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import type { TargetSet } from '../../adaptive'
 import type { Engine, TestConfig } from '../../engine'
@@ -13,6 +13,7 @@ import { Counter } from './Counter'
 import { FocusOverlay } from './FocusOverlay'
 import { HiddenInput } from './HiddenInput'
 import { Lines } from './Lines'
+import { createRestartPolicy } from './restartPolicy'
 import { createSurfaceStore } from './surfaceStore'
 import type { SurfaceStore } from './surfaceStore'
 import { Trace } from './Trace'
@@ -45,19 +46,19 @@ export function TestScreen({ engine, config, onRestart, targets, onStopDrilling 
     () => (metrics === null ? null : createSurfaceStore(engine, metrics.capacity)),
     [engine, metrics],
   )
-  const firstRun = useRef(true)
+  const [restartPolicy] = useState(() => createRestartPolicy(config))
 
   // A configuration change starts a new test with new words. The engine is
   // reset rather than replaced, so every <Word> subscription survives.
+  //
+  // The policy compares by value, because `config` and `onRestart` are both
+  // fresh objects on any render where App's memo re-ran, and the bigram table
+  // resolving from IndexedDB re-runs it without a single setting having changed.
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false
-
-      return
+    if (restartPolicy.shouldRestart(config)) {
+      onRestart()
     }
-
-    onRestart()
-  }, [config, onRestart])
+  }, [config, onRestart, restartPolicy])
 
   useEffect(() => store?.start(), [store])
 
