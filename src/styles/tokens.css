@@ -1,0 +1,157 @@
+/*
+ * Every token in docs/DESIGN.md, as CSS custom properties.
+ *
+ * Colour is stored here twice, once per theme, under the --light-* and --dark-*
+ * prefixes. Nothing outside themes.css should read those prefixes; components
+ * read the semantic names (--canvas, --ink, --accent, ...) that themes.css maps
+ * onto them. The indirection is what keeps the theme switch pure CSS: swapping
+ * data-theme on <html> rebinds nine variables and every dependent value follows.
+ *
+ * Everything below the colour block is theme independent.
+ */
+
+:root {
+  /* ---- Palette: light -------------------------------------------------- */
+  --light-canvas: #eae6dd;
+  --light-surface: #f3efe6;
+  --light-ink: #26292e;
+  --light-muted: #7a7566;
+  --light-muted-strong: #63604f;
+  --light-accent: #0e6e75;
+  --light-error: #bf3b2e;
+  --light-error-strong: #a83527;
+  --light-hairline: #d6d0c4;
+
+  /* ---- Palette: dark --------------------------------------------------- */
+  --dark-canvas: #16181a;
+  --dark-surface: #1e2124;
+  --dark-ink: #e6e2d8;
+  --dark-muted: #75705f;
+  --dark-muted-strong: #948f80;
+  --dark-accent: #3fb3b8;
+  --dark-error: #e0685a;
+  --dark-error-strong: #e0685a;
+  --dark-hairline: #2c3033;
+
+  /* ---- Type families ---------------------------------------------------
+   * The mono face carries the test surface, so it is loaded with
+   * font-display: block. A metric swap mid test would shift every character.
+   */
+  --font-mono: 'IBM Plex Mono', 'Commit Mono', ui-monospace, monospace;
+  --font-sans: 'Instrument Sans', system-ui, sans-serif;
+
+  /* ---- Type scale ------------------------------------------------------ */
+  --text-label: 13px;
+  --text-body: 14px;
+  --text-lead: 16px;
+  --text-logo: 16px;
+  --text-stat: 20px;
+  --text-surface: 28px;
+  --text-surface-narrow: 20px;
+  --text-display: 56px;
+
+  --weight-regular: 400;
+  --weight-surface: 420;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --tracking-label: 0.02em;
+  --tracking-lead: 0.01em;
+  --tracking-logo: -0.01em;
+
+  --leading-surface: 46px;
+  --leading-surface-narrow: 34px;
+  --leading-logo: 0.86;
+  --leading-display: 1;
+
+  /* ---- Space -----------------------------------------------------------
+   * Named by pixel value rather than by step. The design uses a dense set of
+   * literal gaps and renaming them to t-shirt sizes would lose the mapping.
+   */
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-96: 96px;
+
+  --pad-chip: 4px 8px;
+  --pad-switch: 5px 12px;
+  --pad-button: 9px 16px;
+  --pad-header: 16px 24px;
+  --pad-card: 24px;
+  --pad-row: 12px 0;
+  --pad-gutter: 24px;
+
+  /* ---- Layout ----------------------------------------------------------- */
+  --width-shell: 1200px;
+  --width-content: 860px;
+  --width-panel: 520px;
+  --measure-surface: 62ch;
+  --measure-surface-narrow: 32ch;
+
+  /* Not consumable by @media, which cannot read custom properties. The literal
+   * 620px is repeated in themes.css and will be repeated in the surface code.
+   */
+  --breakpoint-narrow: 620px;
+
+  --surface-lines: 3;
+  --surface-viewport-slack: 10px;
+  --surface-viewport-height: calc(
+    var(--leading-surface) * var(--surface-lines) + var(--surface-viewport-slack)
+  );
+  --surface-block-top: calc(46vh - (var(--leading-surface) * 1.5 + 60px));
+
+  /* ---- Shape ------------------------------------------------------------ */
+  --radius: 4px;
+  --hairline-width: 1px;
+  --caret-width: 2px;
+  --caret-height-slack: 4px;
+  --caret-height: calc(var(--text-surface) + var(--caret-height-slack));
+  --caret-glow-blur: 6px;
+  --caret-glow-alpha: 30%;
+  --error-underline-width: 2px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --bar-height: 6px;
+  --switch-min-width: 64px;
+  --logo-tick-width: 2px;
+  --logo-tick-height: 11px;
+
+  /* ---- Motion -----------------------------------------------------------
+   * One easing curve for anything that moves, linear for anything that only
+   * changes colour or opacity. A springy character state change reads as lag.
+   */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --duration-char: 60ms;
+  --duration-caret: 90ms;
+  --duration-caret-reduced: 40ms;
+  --duration-trace: 90ms;
+  --duration-scroll: 120ms;
+  --duration-fade: 180ms;
+  --duration-rise: 180ms;
+  --duration-count-up: 400ms;
+  --duration-graph-draw: 400ms;
+  --duration-progress-draw: 500ms;
+  --delay-graph-draw: 150ms;
+  --delay-secondary-rise: 350ms;
+  --delay-card-rise: 390ms;
+  --blink-period: 1.1s;
+  --rise-distance: 12px;
+
+  /* ---- State ------------------------------------------------------------ */
+  --paused-blur: 4px;
+  --paused-opacity: 0.5;
+  --chip-tint-alpha: 12%;
+  --chip-dim-opacity: 0.6;
+  --extra-char-opacity: 0.6;
+}

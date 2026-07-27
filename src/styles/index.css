@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+@import './tokens.css';
+@import './themes.css';
+
+/*
+ * Tailwind v4, configured CSS first. Only the nine semantic colours are lifted
+ * into Tailwind's namespace, which is enough for bg-canvas / text-ink /
+ * border-hairline and friends. The rest of the token set stays in tokens.css:
+ * Tailwind reserves --text-*, --font-*, --leading-*, --tracking-*, --ease-* and
+ * --breakpoint-* for its own utility generation, and colonising those names
+ * would mean renaming tokens away from what docs/DESIGN.md calls them.
+ *
+ * `inline` matters. Without it Tailwind emits var(--color-ink) and resolves the
+ * indirection once at :root; with it the utility emits var(--ink) directly, so
+ * a data-theme set anywhere in the tree still swaps the value.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-accent: var(--accent);
+  --color-error: var(--error);
+  --color-error-strong: var(--error-strong);
+  --color-hairline: var(--hairline);
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+
+  input,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--accent);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--canvas);
+  }
+}
+
+/*
+ * Test-surface primitives. Both are CSS transitions rather than JavaScript
+ * animation, which is invariant 2, and both animate compositor-only properties,
+ * which is invariant 4.
+ */
+@layer components {
+  .char {
+    transition: color var(--duration-char) linear;
+  }
+
+  .char[data-state='wrong'] {
+    color: var(--error);
+    text-decoration: underline var(--error);
+    text-decoration-thickness: var(--error-underline-width);
+  }
+
+  .caret {
+    transition: transform var(--duration-caret) var(--ease-standard);
+  }
+}
+
+@keyframes blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-distance));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Reduced motion strips decoration but keeps the caret transition, dropped to
+ * 40ms. A caret that teleports is harder to track, which is an accessibility
+ * regression rather than an improvement (ARCHITECTURE.md section 7).
+ *
+ * docs/DESIGN.md gets this wrong: its universal `transition-duration: 0.001ms
+ * !important` outranks the unprefixed `.caret` rule that follows it, so the
+ * caret ends up teleporting. The !important below is what restores the
+ * documented behaviour. See docs/DECISIONS.md.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .caret {
+    transition: transform var(--duration-caret-reduced) linear !important;
+    animation: none !important;
+  }
+}
