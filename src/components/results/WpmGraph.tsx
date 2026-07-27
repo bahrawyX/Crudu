@@ -4,6 +4,7 @@ import uPlot from 'uplot'
 import type { SecondSample } from '../../engine'
 
 import { RESULTS_ENTRANCE } from './constants'
+import { fitRange } from './range'
 
 /**
  * The WPM curve, in uPlot.
@@ -46,7 +47,6 @@ export function WpmGraph({ series, medianWpm, heightPx = 180 }: WpmGraphProps) {
 
     const seconds = series.map((sample) => sample.second)
     const values = series.map((sample) => sample.wpm)
-    const peak = Math.max(60, ...values)
 
     const plot = new uPlot(
       {
@@ -55,7 +55,10 @@ export function WpmGraph({ series, medianWpm, heightPx = 180 }: WpmGraphProps) {
         padding: [8, 0, 0, 0],
         cursor: { show: false },
         legend: { show: false },
-        scales: { x: { time: false }, y: { range: [0, peak * 1.1] } },
+        scales: {
+          x: { time: false },
+          y: { range: () => fitRange([...values, ...(medianWpm === null ? [] : [medianWpm])]) },
+        },
         axes: [
           { show: false },
           { show: false },
@@ -89,14 +92,14 @@ export function WpmGraph({ series, medianWpm, heightPx = 180 }: WpmGraphProps) {
               // Error ticks sit on the baseline, eight pixels tall, one per
               // second in which something was got wrong.
               //
-              // The baseline is where zero is, not where the plotting box ends.
-              // Measuring from bbox left them floating a third of the way up the
-              // graph with nothing under them, which is what they looked like on
-              // a phone before anyone read the code.
+              // The bottom of the range, which since the axis is fitted to the
+              // data is no longer zero. Measuring from bbox left them floating a
+              // third of the way up the graph with nothing under them, which is
+              // what they looked like on a phone before anyone read the code.
               context.strokeStyle = error
               context.lineWidth = 2
 
-              const baseline = self.valToPos(0, 'y', true)
+              const baseline = self.valToPos(self.scales['y']?.min ?? 0, 'y', true)
 
               for (const sample of series) {
                 if (!sample.hadError) {

@@ -570,3 +570,70 @@ than one test.
 point says the opposite of what it means, and it disagreed with the results
 screen, which already required beating an existing record before it would say
 "Best at this setting". Two components, one word, two meanings.
+
+---
+
+## Phase 4 — the adaptive engine
+
+### 4.1 The targeting multiplier is bounded by natural frequency
+
+**Observation, not a decision.** The brief asks for the targeted bigrams to
+appear at three times their natural English frequency. Measured over 4000
+generated words against a synthetic user with five known-slow pairs:
+
+    ol 4.9x   un 2.8x   ce 3.3x   rt 2.9x   br 7.2x     mean 4.2x
+
+The ordering is not noise: `br` is the rarest of the five and multiplies most,
+`un` the most common and multiplies least. The 35% common-word dilution is
+undiluted English by definition, so the overall multiplier is
+`0.35 + 0.65 * (multiplier inside the weighted half)`. Clearing 3 overall needs
+4.1 inside it, and there is less room above a pair that is already everywhere.
+
+The dilution is not the knob. ARCHITECTURE.md 8.2 step 4 is explicit that it is
+what keeps retention and keeps the text reading like English, and lowering it to
+make an assertion pass would trade the thing that works for the number that
+reports it. The suite asserts a mean of 3 and a per-pair floor of 2.5, and says
+why in the test.
+
+### 4.2 The chart range is fitted to the data
+
+**Decision.** Both charts range over `[min - 15% of span, max + 15% of span]`,
+with a ten unit minimum span and a floor at zero.
+
+**Why.** Nobody's WPM is usefully read against not typing. Anchoring at zero
+crushes a 62-to-78 spread into the top fifth of the box, where a real ten word
+per minute swing looks like a flat line — and the interesting thing about a WPM
+curve is the variation, which is exactly what zero-anchoring hides.
+
+The error ticks moved with it: they sit at the bottom of the range rather than
+at zero, because zero is no longer on the chart.
+
+### 4.3 Bigram aggregation refuses soft-keyboard tests a second time
+
+**Decision.** `aggregate` returns the table unchanged for an observation tagged
+`inputSource: 'virtual'`, even though the engine has already withheld the
+samples.
+
+**Why.** The rule exists in the engine and the rule is verified in the engine,
+but the bigram table is the one thing in the product that cannot be rebuilt from
+the raw log if it is corrupted — the EWMA is lossy by construction. A second
+refusal at the point of no return is cheap. `tests/adaptive/endToEnd.test.ts`
+drives real keystrokes through the engine and reads the table out, for both this
+and the pause-count rule, rather than trusting either.
+
+### 4.4 A theme preference of null is not a theme preference of light
+
+**Decision.** `Prefs['theme']` is `'light' | 'dark' | null`, defaulting to null,
+and `applyTheme(null)` removes the attribute.
+
+**Why, and it was the same bug twice.** DECISIONS 3.5 gated the boot-time write
+on whether anything had been stored. That was not enough: preferences are
+written on every configuration change, so a record exists the first time anyone
+touches a chip — and it carried the store's default theme. A first-time visitor
+on a dark system got a dark page until they changed the test length, and a light
+one afterwards.
+
+Storing "has not chosen" as a value rather than inferring it from the absence of
+a record is the only version of this that does not have a third form.
+
+Found the same way as the first two: by taking a screenshot on a dark system.

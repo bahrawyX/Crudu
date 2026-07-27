@@ -17,7 +17,10 @@ describe('preferences store', () => {
   it('starts on the defaults docs/DESIGN.md declares', () => {
     const state = usePrefsStore.getState()
 
-    expect(state.theme).toBe('light')
+    // null, not 'light'. Nobody has chosen a theme yet, and the difference
+    // between "chose light" and "has not chosen" is what keeps
+    // prefers-color-scheme working. DECISIONS 4.4.
+    expect(state.theme).toBeNull()
     expect(state.mode).toBe('time')
     expect(state.timeValue).toBe(30)
     expect(state.wordCount).toBe(25)
