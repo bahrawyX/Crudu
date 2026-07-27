@@ -325,6 +325,292 @@
     white-space: pre;
   }
 
+  /*
+   * Screens measured in pixels. Fluid by default: max-width degrades
+   * continuously, so no intermediate breakpoint is needed and none is given.
+   * src/components/ui/measure.ts owns the numbers. See DECISIONS 3.2.
+   */
+  .screen {
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--space-8) var(--pad-gutter) var(--space-96);
+  }
+
+  .screen-content {
+    max-width: var(--width-content);
+  }
+
+  .screen-panel {
+    max-width: var(--width-panel);
+  }
+
+  .label {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+  }
+
+  .stat-value {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-stat);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    margin-top: var(--space-4);
+  }
+
+  .card {
+    margin-top: var(--space-48);
+    background: var(--surface);
+    border: var(--hairline-width) solid var(--hairline);
+    border-radius: var(--radius);
+    padding: var(--pad-card);
+    animation: rise var(--duration-rise) var(--ease-standard) both;
+  }
+
+  .card-body {
+    font-size: var(--text-body);
+    color: var(--ink);
+  }
+
+  .button-primary {
+    margin-top: var(--space-24);
+    padding: var(--pad-button);
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--canvas);
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-label);
+  }
+
+  .button-primary:disabled {
+    opacity: var(--disabled-opacity);
+    cursor: not-allowed;
+  }
+
+  .button-text {
+    padding: var(--space-4);
+    border-radius: var(--radius);
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+    transition: color var(--duration-char) linear;
+  }
+
+  @media (hover: hover) {
+    .button-text:hover {
+      color: var(--ink);
+    }
+
+    .button-primary:hover:not(:disabled) {
+      background: var(--accent-pressed);
+    }
+  }
+
+  .button-text:active,
+  .button-primary:active:not(:disabled) {
+    opacity: var(--pressed-opacity);
+  }
+
+  /* ---- Results, docs/DESIGN.md 3.4 -------------------------------------- */
+
+  .results-headline {
+    display: flex;
+    gap: var(--space-64);
+    flex-wrap: wrap;
+  }
+
+  .results-number {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-display);
+    line-height: var(--leading-display);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  .results-number[data-best='true'] {
+    color: var(--accent);
+  }
+
+  .results-label-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-8);
+    margin-top: var(--space-4);
+  }
+
+  .delta {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+  }
+
+  .delta[data-up='true'] {
+    color: var(--accent);
+  }
+
+  .results-best {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--accent);
+    margin-top: var(--space-6);
+  }
+
+  .wpm-graph {
+    margin-top: var(--space-48);
+    width: 100%;
+    animation: rise var(--duration-rise) var(--ease-standard) both;
+  }
+
+  .results-secondary {
+    display: flex;
+    gap: var(--space-48);
+    flex-wrap: wrap;
+    margin-top: var(--space-32);
+    animation: rise var(--duration-rise) var(--ease-standard) both;
+  }
+
+  .weakness-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-14);
+    margin-top: var(--space-16);
+  }
+
+  .weakness-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-16);
+  }
+
+  .weakness-pair {
+    font-family: var(--font-mono);
+    font-size: var(--text-stat);
+    font-weight: var(--weight-semibold);
+    color: var(--ink);
+    min-width: 3ch;
+  }
+
+  .storage-error {
+    margin-top: var(--space-32);
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--error-strong);
+  }
+
+  .results-actions {
+    display: flex;
+    gap: var(--space-24);
+    margin-top: var(--space-32);
+  }
+
+  /* ---- History, proposed. See docs/DECISIONS.md 3.1 --------------------- */
+
+  .history {
+    margin-top: var(--space-64);
+  }
+
+  .history-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+  }
+
+  .history-rows {
+    display: flex;
+    flex-direction: column;
+    margin-top: var(--space-16);
+  }
+
+  /*
+   * Wraps rather than overflows. The reserved columns add up to more than a
+   * 375px viewport holds, and before this the "best" badge sat outside the
+   * right edge of the screen.
+   */
+  .history-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: var(--space-20);
+    row-gap: var(--space-4);
+    padding: var(--pad-row);
+    color: var(--ink);
+  }
+
+  .history-row[data-ruled='true'] {
+    border-bottom: var(--hairline-width) solid var(--hairline);
+  }
+
+  .history-date {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+    min-width: 7ch;
+  }
+
+  .history-config {
+    flex: 1 1 8ch;
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--muted-strong);
+    min-width: 8ch;
+  }
+
+  .history-wpm {
+    font-family: var(--font-mono);
+    font-size: var(--text-stat);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+    min-width: 4ch;
+    text-align: right;
+  }
+
+  .history-accuracy {
+    font-family: var(--font-mono);
+    font-size: var(--text-body);
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-strong);
+    min-width: 5ch;
+    text-align: right;
+  }
+
+  .history-tags {
+    display: flex;
+    gap: var(--space-8);
+    min-width: 0;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .tag {
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+  }
+
+  .tag[data-kind='best'] {
+    color: var(--accent);
+  }
+
+  /* A soft-keyboard run stays in history and stays out of the comparison, so a
+   * phone-typed 40 WPM never reads as a regression. DECISIONS 3.3. */
+  .tag[data-kind='virtual'] {
+    color: var(--muted-strong);
+  }
+
   /* ---- Interaction states, proposed. See docs/DECISIONS.md 2.1 ---------- */
 
   .chip {

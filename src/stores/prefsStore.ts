@@ -84,6 +84,20 @@ export const usePrefsStore = create<PrefsStore>((set) => ({
   },
 }))
 
+/** The persistable half of the store, without the actions. */
+export function selectPrefs(state: PrefsStore): Prefs {
+  return {
+    theme: state.theme,
+    mode: state.mode,
+    timeValue: state.timeValue,
+    wordCount: state.wordCount,
+    punctuation: state.punctuation,
+    numbers: state.numbers,
+    stopOnError: state.stopOnError,
+    caretBlink: state.caretBlink,
+  }
+}
+
 /** The value that applies to the current mode. */
 export function activeValue(prefs: Prefs): number {
   return prefs.mode === 'time' ? prefs.timeValue : prefs.wordCount

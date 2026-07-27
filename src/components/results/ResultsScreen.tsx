@@ -1,0 +1,199 @@
+import { useMemo } from 'react'
+
+import { wpmSeries } from '../../engine'
+import type { BigramSample, TestResult } from '../../engine'
+import { CALIBRATION_TESTS, MIN_BIGRAM_SAMPLES } from '../../adaptive/params'
+import type { Comparison, HistoryRow } from '../../storage/history'
+
+import { RESULTS_ENTRANCE, SECONDARY_STATS } from './constants'
+import { HistoryList } from './HistoryList'
+import { useCountUp } from './useCountUp'
+import { WpmGraph } from './WpmGraph'
+
+/**
+ * The results screen, per docs/DESIGN.md 3.4.
+ *
+ * One orchestrated 700ms entrance: numbers count up over 400ms, the graph draws
+ * from 150ms, the secondary stats rise at 350ms and the card follows one 40ms
+ * stagger later. This is the emotional payoff of the loop and the only place
+ * worth spending animation budget, so it is one moment rather than four.
+ *
+ * All of it is CSS keyframes except the count-up, which interpolates text.
+ */
+
+const HISTORY_ROWS_ON_RESULTS = 10
+
+export type ResultsScreenProps = {
+  readonly result: TestResult
+  readonly comparison: Comparison
+  readonly bigrams: readonly BigramSample[]
+  readonly history: readonly HistoryRow[]
+  readonly storageFailed: boolean
+  readonly onRepeat: () => void
+  readonly onNew: () => void
+}
+
+function delta(current: number, median: number | null, unit = ''): {
+  readonly label: string
+  readonly up: boolean
+} {
+  if (median === null) {
+    return { label: 'first plotted test', up: false }
+  }
+
+  const difference = Math.round(current) - Math.round(median)
+  const sign = difference >= 0 ? '+' : ''
+
+  return { label: `${sign}${String(difference)}${unit} vs 7 day median`, up: difference >= 0 }
+}
+
+/** Slowest transitions in this test, and what the rest of it averaged. */
+function slowestPairs(samples: readonly BigramSample[]): {
+  readonly rows: ReadonlyArray<{ readonly pair: string; readonly ms: number }>
+  readonly averageMs: number
+} {
+  const totals = new Map<string, { total: number; count: number }>()
+
+  for (const sample of samples) {
+    const current = totals.get(sample.pair) ?? { total: 0, count: 0 }
+
+    current.total += sample.latencyMs
+    current.count += 1
+    totals.set(sample.pair, current)
+  }
+
+  const pairs = [...totals.entries()].map(([pair, { total, count }]) => ({
+    pair,
+    ms: Math.round(total / count),
+    count,
+  }))
+
+  const averageMs =
+    pairs.length === 0
+      ? 0
+      : Math.round(pairs.reduce((sum, entry) => sum + entry.ms, 0) / pairs.length)
+
+  return {
+    rows: pairs.sort((a, b) => b.ms - a.ms).slice(0, 3),
+    averageMs,
+  }
+}
+
+export function ResultsScreen({
+  result,
+  comparison,
+  bigrams,
+  history,
+  storageFailed,
+  onRepeat,
+  onNew,
+}: ResultsScreenProps) {
+  const series = useMemo(() => wpmSeries(result.keystrokes), [result])
+  const weakness = useMemo(() => slowestPairs(bigrams), [bigrams])
+
+  const wpm = useCountUp(result.derived.wpm)
+  const accuracy = useCountUp(result.derived.accuracy)
+
+  const wpmDelta = delta(result.derived.wpm, comparison.medianWpm)
+  const accuracyDelta = delta(result.derived.accuracy, comparison.medianAccuracy)
+  const calibrating = comparison.testsSoFar < CALIBRATION_TESTS
+  const remaining = CALIBRATION_TESTS - comparison.testsSoFar
+
+  const secondary: Record<(typeof SECONDARY_STATS)[number], string> = {
+    'raw wpm': String(Math.round(result.derived.raw)),
+    consistency: `${String(Math.round(result.derived.consistency))}%`,
+    characters: String(
+      result.derived.chars.correct + result.derived.chars.incorrect + result.derived.chars.extra,
+    ),
+    time: `${String(Math.round(series.length))}s`,
+  }
+
+  return (
+    <main className="screen screen-content results">
+      <div className="results-headline">
+        <div>
+          <div className="results-number" data-best={comparison.isPersonalBest ? 'true' : 'false'}>
+            {Math.round(wpm)}
+          </div>
+          <div className="results-label-row">
+            <span className="label">wpm</span>
+            <span className="delta" data-up={wpmDelta.up ? 'true' : 'false'}>
+              {wpmDelta.label}
+            </span>
+          </div>
+          {comparison.isPersonalBest ? (
+            <div className="results-best">Best at this setting</div>
+          ) : null}
+        </div>
+
+        <div>
+          <div className="results-number">{`${String(Math.round(accuracy))}%`}</div>
+          <div className="results-label-row">
+            <span className="label">accuracy</span>
+            <span className="delta" data-up={accuracyDelta.up ? 'true' : 'false'}>
+              {accuracyDelta.label}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <WpmGraph series={series} medianWpm={comparison.medianWpm} />
+
+      <div className="results-secondary" style={{ animationDelay: `${String(RESULTS_ENTRANCE.secondaryDelayMs)}ms` }}>
+        {SECONDARY_STATS.map((label) => (
+          <div key={label}>
+            <div className="label">{label}</div>
+            <div className="stat-value">{secondary[label]}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ animationDelay: `${String(RESULTS_ENTRANCE.cardDelayMs)}ms` }}>
+        {calibrating ? (
+          <div className="card-body">
+            {`Calibrating. ${remaining > 1 ? 'Two more tests' : 'One more test'} before drills unlock.`}
+          </div>
+        ) : (
+          <div>
+            <div className="label">Slowest transitions</div>
+            <div className="weakness-rows">
+              {weakness.rows.map((row) => (
+                <div key={row.pair} className="weakness-row">
+                  <span className="weakness-pair">{row.pair}</span>
+                  <span className="card-body">
+                    {`${String(row.ms)}ms, against your average of ${String(weakness.averageMs)}ms`}
+                  </span>
+                </div>
+              ))}
+              {weakness.rows.length === 0 ? (
+                <div className="card-body">
+                  {result.inputSource === 'virtual'
+                    ? 'No transitions recorded. Soft keyboards are not measured for drills.'
+                    : `Not enough clean transitions yet. ${String(MIN_BIGRAM_SAMPLES)} samples per pair are needed.`}
+                </div>
+              ) : null}
+            </div>
+            <button type="button" className="button-primary" disabled>
+              Drill these
+            </button>
+          </div>
+        )}
+      </div>
+
+      {storageFailed ? (
+        <div className="storage-error">Could not save that test. Your history is intact.</div>
+      ) : null}
+
+      <div className="results-actions">
+        <button type="button" className="button-text" onClick={onRepeat}>
+          Repeat test
+        </button>
+        <button type="button" className="button-text" onClick={onNew}>
+          New test
+        </button>
+      </div>
+
+      <HistoryList rows={history} limit={HISTORY_ROWS_ON_RESULTS} />
+    </main>
+  )
+}
