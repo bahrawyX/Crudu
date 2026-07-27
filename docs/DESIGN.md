@@ -1,827 +1,873 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;display=block">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap">
-<style>
-:root{
---canvas:#EAE6DD;--surface:#F3EFE6;--ink:#26292E;--muted:#7A7566;--muted-strong:#63604F;
---accent:#0E6E75;--error:#BF3B2E;--error-strong:#A83527;--hairline:#D6D0C4;
+# DESIGN.md
+
+The visual system, documented.
+
+The artefact this describes is [`design-prototype.html`](./design-prototype.html),
+imported verbatim from Claude Design. That file is the source of truth for what
+the design *is*; this file is the source of truth for what it *means*, and it is
+what batches 2 through 5 read.
+
+Where the prototype is silent, this document says **not specified in
+prototype** rather than filling the gap. Every such gap is a decision still to
+be made, not a detail that was overlooked here.
+
+Where the prototype's implementation conflicts with an invariant in `CLAUDE.md`,
+this document records the visual intent and `DECISIONS.md` records the
+departure. Treat the prototype's visual decisions as authoritative and its
+implementation as a suggestion.
+
+---
+
+## 1 Tokens
+
+### 1.1 Colour
+
+Nine semantic names, two palettes. Switched by `data-theme` on `<html>`.
+
+| Token | Light | Dark | What it is |
+|---|---|---|---|
+| `--canvas` | `#EAE6DD` | `#16181A` | Page background. Warm off-white / near-black |
+| `--surface` | `#F3EFE6` | `#1E2124` | Raised card fill. One step from canvas |
+| `--ink` | `#26292E` | `#E6E2D8` | Primary text, correct characters |
+| `--muted` | `#7A7566` | `#75705F` | Pending characters on the test surface. Nothing else |
+| `--muted-strong` | `#63604F` | `#948F80` | Labels, inactive controls, secondary text |
+| `--accent` | `#0E6E75` | `#3FB3B8` | Caret, trace, active state, graph line, primary button |
+| `--error` | `#BF3B2E` | `#E0685A` | Wrong characters and their underline, graph error ticks |
+| `--error-strong` | `#A83527` | `#E0685A` | Error message text. Identical to `--error` in dark |
+| `--hairline` | `#D6D0C4` | `#2C3033` | Rules, dividers, borders, the trace track, bar tracks |
+
+Two derived values, both computed from `--accent` so they follow the switch:
+
+| Derived | Expression | Where |
+|---|---|---|
+| Caret glow | `0 0 6px color-mix(in oklab, var(--accent) 30%, transparent)` | `box-shadow` on the caret |
+| Chip tint | `color-mix(in oklab, var(--accent) 12%, transparent)` | Background of an active config chip |
+
+Two opacity-modified colours:
+
+| Modified | Expression | Where |
+|---|---|---|
+| Extra character | `--error` at `opacity: 0.6` | Characters typed past the end of a word |
+| Paused surface | whole block at `opacity: 0.5` + `blur(4px)` | Focus-lost state |
+
+`--muted` has exactly one job: pending characters. Using it for labels would
+collapse the distinction between "text you have not typed yet" and "text that is
+merely secondary", which is the whole information design of the test surface.
+
+### 1.2 Type
+
+Two families.
+
+| Family | Stack | Loading |
+|---|---|---|
+| Mono | `'IBM Plex Mono', 'Commit Mono', monospace` | Google Fonts, weights 400 and 600, `display=block` |
+| Sans | `'Instrument Sans', system-ui, sans-serif` | Google Fonts, weights 400, 500 and 600, `display=swap` |
+
+`display: block` on the mono face is not a preference. A FOUT that swaps metrics
+mid-test shifts every character and reads as a broken app.
+
+The complete set of type treatments in the prototype:
+
+| Size | Weight | Family | Line height | Tracking | Where |
+|---|---|---|---|---|---|
+| 13px | 500 | Sans | inherit | 0.02em | Every label, chip, nav item, counter, hint, delta, note, switch |
+| 13px | 600 | Sans | inherit | 0.02em | Primary button label, active nav item |
+| 14px | 400 | Sans | inherit | — | Body copy, card copy, settings row labels |
+| 14px | 400 | Mono | inherit | — | Weakness latency, improved before/after |
+| 16px | 400 | Sans | inherit | 0.01em | Paused overlay line |
+| 16px | 600 | Mono | 0.86 | −0.01em | Logo wordmark |
+| 20px | 400 | Sans | inherit | — | Empty-state heading |
+| 20px | 600 | Mono | inherit | — | Secondary stat values, bigram pairs. `tabular-nums` |
+| 28px | 420 | Mono | 46px | 0 | The test surface |
+| 20px | 420 | Mono | 34px | 0 | The test surface below 620px |
+| 56px | 600 | Mono | 1 | — | WPM and accuracy on results. `tabular-nums` |
+
+`tabular-nums` wherever a number can change in place. A count-up that shifts
+width as it runs looks like a bug.
+
+**Note.** The surface asks for weight 420 but the stylesheet loads IBM Plex Mono
+at 400 and 600 only, as static weights. 420 will resolve to 400 or be
+synthesised depending on the browser. `'Commit Mono'` is listed ahead of the
+generic fallback but is never loaded. Both are implementation details to settle
+in phase 2, not design decisions.
+
+### 1.3 Space
+
+The prototype uses literal pixel values rather than a named scale. The complete
+set, in the order it appears:
+
+**Gaps:** 3, 8, 10, 12, 14, 16, 20, 24, 48, 64
+**Margins (top):** 4, 6, 8, 12, 16, 20, 24, 32, 48, 64
+**Padding, composite:** `4px` (icon button), `4px 8px` (chip), `5px 12px`
+(switch), `9px 16px` (primary button), `12px 0` (weakness row), `16px 24px`
+(header), `24px` (card), `0 24px` (test main), `8px 24px 96px` (results main),
+`24px 24px 96px` (progress, weakness, settings main)
+**Padding, single:** `32px` below the config bar
+
+The 96px bottom padding on every scrolling screen is deliberate breathing room,
+not a footer allowance. There is no footer.
+
+### 1.4 Layout
+
+| Token | Value | Where |
+|---|---|---|
+| Shell max width | 1200px | Header only |
+| Content max width | 860px | Results, progress, weakness |
+| Panel max width | 520px | Settings, and the "improved this week" list |
+| Surface measure | 62ch / 32ch narrow | The test block |
+| Surface viewport | `lineHeight × 3 + 10px` | Three lines visible, 10px slack |
+| Surface block top | `calc(46vh − (lineHeight × 1.5 + 60px))` | Puts the middle line at 46vh |
+| Narrow breakpoint | 620px | The only breakpoint |
+
+### 1.5 Shape
+
+| Token | Value |
+|---|---|
+| Corner radius | 4px, everywhere, without exception |
+| Hairline | 1px |
+| Caret width | 2px |
+| Caret height | font size + 4px, so 32px at 28px type |
+| Wrong-character underline | 2px |
+| Graph stroke | 2px, `vector-effect: non-scaling-stroke` |
+| Median line | 1px, `vector-effect: non-scaling-stroke` |
+| Error tick | 2px wide, 8px tall, sitting on the graph baseline |
+| Weakness bar | 6px tall, 4px radius, `min-width: 80px` |
+| Logo tick | 2px × 11px |
+| Focus ring | 2px solid accent, 2px offset |
+| Switch min width | 64px |
+| Column reservations | `3ch` pair, `4ch` pair on the report, `7ch` latency, `13ch` note |
+
+The only shadow in the entire system is the caret glow. There are no elevation
+levels, no gradients, and no icons.
+
+---
+
+## 2 Signature
+
+**The caret, and the trace it leaves.**
+
+It is the only thing that moves during a test, it moves roughly eight times a
+second, and it is where the eye is locked. Everything else on the test screen is
+either the text being typed or has faded to zero.
+
+### 2.1 The caret
+
+```
+2px wide, (font-size + 4)px tall — 32px at the default 28px surface type
+background:  var(--accent)
+box-shadow:  0 0 6px color-mix(in oklab, var(--accent) 30%, transparent)
+position:    absolute, left 0 top 0, moved only by transform
+transform:   translate3d(x, y, 0)
+transition:  transform 90ms cubic-bezier(0.2, 0, 0, 1)
+animation:   blink 1.1s steps(1) infinite  — while idle only
+pointer-events: none
+```
+
+The blink is `steps(1)`, not a fade: `0%,45% { opacity: 1 } 55%,100% { opacity: 0 }`.
+A hard on/off at 1.1s reads as a terminal cursor. A fade would read as a
+loading state.
+
+The blink stops the moment a test becomes active and does not resume until the
+test ends. A blinking caret under a moving hand is visual noise.
+
+Position is arithmetic, never measured: `x = column × charWidth`,
+`y = line × lineHeight`. `charWidth` is measured once on font load and cached.
+This is why the surface is monospace — see `ARCHITECTURE.md` 4.1, and
+`DECISIONS.md` 0.1 for what the prototype does instead.
+
+### 2.2 The trace
+
+A 1px accent line under the active line, showing how far through the line the
+caret has travelled. It is a readout of caret position, not an independent
+element:
+
+```
+track:  absolute, left 0 right 0, height 1px, background var(--hairline)
+        top: (traceRow + 1) × lineHeight − 4px
+        overflow: hidden
+fill:   height 1px, background var(--accent)
+        transform-origin: left
+        transform: scaleX(min(1, caretLeft / lineWidth))
+        transition: transform 90ms cubic-bezier(0.2, 0, 0, 1)
+```
+
+`scaleX` on the same 90ms curve as the caret, so the two move as one thing.
+Never `width` — that is a layout property and this runs eight times a second.
+
+**Note on naming.** `ARCHITECTURE.md` 11 calls the caret the signature element;
+the phase 2 brief calls the trace the signature element. In the prototype they
+are a single mechanism: the trace is derived from `caret.left` and shares its
+timing curve. Treat them as one.
+
+---
+
+## 3 Screens
+
+### 3.0 Header
+
+Present on every screen. Fades out entirely while a test is active.
+
+```
+flex row, space-between, align center, gap 24
+padding 16px 24px, max-width 1200px, margin 0 auto, width 100%
+opacity 0 + pointer-events none while a test is active
+transition: opacity 180ms linear
+```
+
+**Logo**, a button that navigates to the test screen. An inline-flex column,
+gap 3:
+
+- Row: `crudu` in Mono 16px/600, line-height 0.86, tracking −0.01em, colour
+  `--ink`, followed by a 2 × 11px `--accent` block, aligned to the baseline with
+  a 3px gap. The block is a caret.
+- Below the row: a 1px `--accent` rule the full width of the lockup.
+
+**Nav**, flex row, gap 20, 13px, tracking 0.02em. Four items: `Test`,
+`Progress`, `Weaknesses`, `Settings`. Active is `--ink` at weight 600; inactive
+is `--muted-strong` at weight 500. Each has 4px padding and a 4px radius. The
+results screen keeps `Test` marked active — results is not a nav destination.
+
+### 3.1 Test, idle
+
+The state before the first keystroke.
+
+**Counter.** Absolute, 24px from the left, 8px from the top. Mono 13px/500,
+tracking 0.02em, `--muted-strong`. `opacity: 0` until the test starts.
+
+**Test block.** `max-width: 62ch`, `margin-top: calc(46vh − (lineHeight × 1.5 + 60px))`,
+which lands the middle of the three lines at 46% of viewport height.
+
+**Config bar.** Centred flex row, gap 16, wrapping, with `padding-bottom: 32px`.
+Three groups separated by 1px × 14px `--hairline` dividers:
+
+1. `time` · `words`
+2. Four values — `15 30 60 120` in time mode, `10 25 50 100` in words mode
+3. `punctuation` · `numbers`
+
+Chip: `padding: 4px 8px`, radius 4, 13px/500, tracking 0.02em. Active is
+`--accent` text on the 12% accent tint. Inactive is `--muted-strong` on
+transparent. There is no border and no hover state.
+
+**Surface.**
+
+```
+viewport: position relative, height (lineHeight × 3 + 10)px, overflow hidden
+inner:    Mono 28px/420, line-height 46px, letter-spacing 0
+          display flex, flex-wrap wrap, gap "0 1ch", align-content flex-start
+          transform: translate3d(0, −scrollRow × lineHeight, 0)
+          transition: transform 120ms cubic-bezier(0.2, 0, 0, 1)
+word:     inline-flex, white-space nowrap
+char:     inline-block, line-height 46px, class="char"
+```
+
+Words are separated by a `1ch` flex gap rather than a literal space character.
+Wrapping is `flex-wrap`, so a word never splits across lines.
+
+Four character states, and only four:
+
+| State | Colour | Second signal |
+|---|---|---|
+| Pending | `--muted` | — |
+| Correct | `--ink` | — |
+| Wrong | `--error` | 2px `--error` underline |
+| Extra | `--error` at 0.6 opacity | 2px `--error` underline |
+
+Colour never appears on the surface for any other reason. There is no
+highlighting, no active-word emphasis, no next-word preview treatment.
+
+**Hint.** `Start typing`, centred, 32px below the surface, 13px/500
+`--muted-strong`. Fades to 0 once the test starts.
+
+**Input.** A real `<input>`, not `contenteditable`, positioned at
+`left: -9999px` at 1×1px and zero opacity. `aria-label="Typing input"`,
+`autoComplete`, `autoCapitalize` and `autoCorrect` off, `spellCheck` false.
+Clicking anywhere on the surface refocuses it; the wrapper carries
+`cursor: text`.
+
+### 3.2 Test, active
+
+Started, not finished, not paused. Four things change, all on the same 180ms
+linear fade:
+
+- Header → `opacity: 0`, `pointer-events: none`
+- Config bar → `opacity: 0`, `pointer-events: none`
+- Hint → `opacity: 0`
+- Counter → `opacity: 1`
+
+The counter reads `30s` in time mode and `24 words` in words mode. It is the
+only number on screen.
+
+**There is no live WPM.** A live speed number pulls the eye off the text, which
+is the one thing the screen exists to show.
+
+The caret's blink animation is set to `none` while active. Lines scroll up as
+they complete; the active line holds its position, one row from the top of the
+viewport.
+
+### 3.3 Test, focus lost
+
+Blur while a test is running pauses it. Elapsed time excludes the paused span.
+
+- The whole test block takes `filter: blur(4px)` and `opacity: 0.5`, over
+  180ms linear on both properties.
+- A single centred line sits over it, 16px `--ink`, tracking 0.01em, in an
+  absolutely positioned `pointer-events: none` layer:
+  `Click or press any key to resume`
+- Header and config bar return, because the test is no longer active.
+
+Any keydown anywhere on the window refocuses the input.
+
+### 3.4 Results
+
+`max-width: 860px`, `padding: 8px 24px 96px`.
+
+**Headline row.** Flex, gap 64, wrapping. Two blocks:
+
+| | |
+|---|---|
+| Number | Mono 56px/600, line-height 1, `tabular-nums` |
+| Label | 13px/500 `--muted-strong` — `wpm`, `accuracy` |
+| Delta | 13px/500 on the same baseline, 8px after the label |
+
+The delta reads `+4 vs 7 day median` and is `--accent` when at or above the
+median, `--muted-strong` when below. With no history it reads
+`first plotted test`.
+
+**Personal-best variant.** The WPM number turns `--accent`, and a third line
+appears 6px below the label row: `Best at this setting`, 13px/500 `--accent`.
+A personal best is scoped to the exact config, so `time 30 punctuation` and
+`time 30 plain` are separate records. Accuracy never turns accent.
+
+**Graph.** 48px below, 180px tall, full width. `viewBox="0 0 900 180"` with
+`preserveAspectRatio="none"` and `overflow: visible`.
+
+- One `--hairline` line at the median, 1px, non-scaling stroke
+- The WPM series as a 2px `--accent` path, `pathLength="1"`,
+  `stroke-dasharray: 1`, `stroke-dashoffset: 1`, drawn by
+  `animation: draw 400ms 150ms linear forwards`
+- Error ticks: 2px `--error` verticals from y 172 to 180, sitting on the
+  baseline, one per second in which an error occurred
+- Vertical mapping: `y = 170 − (wpm / max(60, peak)) × 160`
+
+No axes, no gridlines, no legend, no tooltip.
+
+**Secondary stats.** 32px below, flex row, gap 48, wrapping. Four label/value
+pairs, in this order: `raw wpm`, `consistency`, `characters`, `time`. Label
+13px/500 `--muted-strong`; value Mono 20px/600 `tabular-nums` `--ink`, 4px
+below. Not cards. No borders, no backgrounds, no dividers.
+
+**Card.** The only card in the product. 48px below, `--surface` fill, 1px
+`--hairline` border, 4px radius, 24px padding. It has two mutually exclusive
+contents:
+
+*Weakness variant*, once calibration is done:
+
+- Label `Slowest transitions`, 13px/500 `--muted-strong`
+- Three rows, 16px below, gap 14, each a baseline row with gap 16: the pair in
+  Mono 20px/600 `--ink` reserving `3ch`, then the body in 14px `--ink` —
+  `310ms, against your average of 145ms`
+- A primary button 24px below: `padding: 9px 16px`, radius 4, `--accent` fill,
+  `--canvas` label, 13px/600, tracking 0.02em — `Drill these`
+
+*Calibrating variant*, for tests 1 to 3: one line of 14px `--ink`, replacing
+everything above.
+
+**Footer actions.** 32px below the card, flex row, gap 24, 13px/500
+`--muted-strong`, 4px padding, 4px radius: `Repeat test`, `New test`. Plain
+text buttons, no borders.
+
+### 3.5 Progress
+
+`max-width: 860px`, `padding: 24px 24px 96px`.
+
+**Populated**, from three tests onward:
+
+- Label `7 day rolling median`, 13px/500 `--muted-strong`
+- Chart 16px below, 220px tall, `viewBox="0 0 900 220"`. A `--hairline` median
+  line and a 2px `--accent` path drawn by `animation: draw 500ms linear forwards`
+  — no entrance delay, unlike results
+- Below the chart, 8px down, a `space-between` row of two 13px/500
+  `--muted-strong` labels: the first and last day in the series, formatted
+  `M/D`. There is no axis
+- 64px below, label `Improved this week`
+- A `max-width: 520px` column, gap 16, 20px below. Each row is a baseline row,
+  gap 20: the pair in Mono 20px/600 `--ink` reserving `3ch`, the before value
+  in Mono 14px `--muted-strong` with `line-through`, the after value in Mono
+  14px `--accent`. Five rows, largest improvement first
+
+The chart plots the rolling median, never the personal best. Personal bests are
+noise-chasing; the median is the thing that moves.
+
+**Empty state**, under three tests. `min-height: 60vh`, centred column, gap 12,
+centre-aligned:
+
+- `Nothing plotted yet.` — 20px `--ink`
+- `Run three tests and your first line appears here.` — 14px `--muted-strong`
+- A primary button 12px below: `Run a test.`
+
+### 3.6 Weakness report
+
+`max-width: 860px`, `padding: 24px 24px 96px`.
+
+**Header row.** Baseline, `space-between`, both 13px/500 `--muted-strong`:
+`Tracked transitions, slowest first` on the left, `14 pairs` on the right.
+
+**Rows.** 24px below, up to 24 of them, slowest first. Each row is
+`display: flex`, `align-items: center`, gap 20, `padding: 12px 0`:
+
+| Element | Treatment |
+|---|---|
+| Pair | Mono 20px/600, `min-width: 4ch` |
+| Bar track | `flex: 1`, 6px tall, `--hairline`, radius 4, `overflow: hidden`, `min-width: 80px` |
+| Bar fill | `width: (ms / slowest) × 100%`, `--accent`, radius 4 |
+| Latency | Mono 14px `tabular-nums`, `min-width: 7ch`, right aligned |
+| Note | 13px/500 `--muted-strong`, `min-width: 13ch`, right aligned |
+
+A row with fewer than 8 samples is demoted: its text drops from `--ink` to
+`--muted-strong`, its bar fill drops from `--accent` to `--muted-strong`, and
+its note reads `Needs more data` instead of `12 samples`. Under-sampled data is
+shown rather than hidden, and marked rather than trusted.
+
+Every fifth row carries a 1px `--hairline` bottom border. That is what makes a
+24-row list scannable without banding it.
+
+**Empty state.** `min-height: 50vh`, otherwise identical to the progress empty
+state, same copy, same button.
+
+### 3.7 Settings
+
+`max-width: 520px`, `padding: 24px 24px 96px`. Three groups, separated by full
+width 1px `--hairline` rules with `margin: 32px 0`.
+
+Group header: 13px/500 `--muted-strong`. Rows: flex column, gap 20, starting
+16px below the header. Each row is `space-between` with gap 24, its label in
+14px `--ink`.
+
+| Group | Rows | Control |
+|---|---|---|
+| `Test` | `Mode` | `time` · `words` chips |
+| | `Duration` / `Word count` | Four value chips, label follows the mode |
+| `Behaviour` | `Punctuation` | Switch |
+| | `Numbers` | Switch |
+| | `Stop on first error` | Switch |
+| `Appearance` | `Theme` | `light` · `dark` chips, lowercase |
+| | `Caret blink` | Switch |
+
+Switch: `padding: 5px 12px`, radius 4, `min-width: 64px`, 13px/500, tracking
+0.02em, with a 1px border. On is `--accent` border and text reading `on`; off
+is `--hairline` border with `--muted-strong` text reading `off`. It is a
+labelled button, not a track-and-knob toggle.
+
+**Storage error.** When a write has failed, a line appears 32px below the last
+group, 13px/500 `--error-strong`:
+`Could not save that test. Your history is intact.`
+
+It sits on the settings screen only. A storage failure never interrupts a test
+and never blocks a result.
+
+### 3.8 Gaps
+
+States and screens the prototype does not specify. Listed so that phase 2
+onwards knows these are open, not forgotten.
+
+**Interaction states**
+
+- Hover on any control — **not specified in prototype**. The only hover rule in
+  the stylesheet is `a:hover { color: var(--ink) }`, and there are no anchors in
+  the markup
+- Pressed / active states — **not specified in prototype**
+- Disabled states — **not specified in prototype**
+- Per-component focus styling beyond the global ring — **not specified in prototype**
+- The chip helper accepts a `dim` argument that applies `opacity: 0.6`, but is
+  never called with it. The dimmed variant is unused — **not specified in prototype**
+
+**Screens and flows**
+
+- The drill / adaptive test surface. `Drill these` navigates to the weakness
+  report, not to a drill — **not specified in prototype**
+- Any calibration indicator on the test screen. Calibration is surfaced only on
+  results — **not specified in prototype**
+- A history or past-tests screen — **not specified in prototype**
+- A results state with no data — unreachable, **not specified in prototype**
+- Route-not-found — **not specified in prototype**
+- First paint, loading, or skeleton states — **not specified in prototype**
+
+**Test-surface detail**
+
+- Caret behaviour at a line wrap — **not specified in prototype**
+- How punctuation and numbers render on the surface, beyond being appended to a
+  word — **not specified in prototype**
+- Any treatment for `stop on first error` on the surface. The setting exists and
+  silently drops the keystroke; nothing visual marks it — **not specified in prototype**
+- Keyboard-shortcut affordances. The prototype binds `Escape` to regenerate and
+  refocuses on any window keydown; `Tab` → `Enter` to restart and `Shift+Tab` to
+  repeat, which `ARCHITECTURE.md` 3 requires, are **not specified in prototype**
+
+**Chrome**
+
+- Header and nav behaviour below 620px. Nav does not collapse and there is no
+  menu — **not specified in prototype**
+- A 360px layout. The only breakpoint is 620px — **not specified in prototype**
+- A footer. There is none, deliberately
+- An app icon or favicon. A separate `Crudu Logo.dc.html` exists in the design
+  project and was not part of this import — **not specified in prototype**
+- Print styles — **not specified in prototype**
+- Theme-transition motion. Switching theme is instant — **not specified in prototype**
+
+**Copy**
+
+- Pluralisation for `1 pairs` and `1 samples` — **not specified in prototype**
+
+---
+
+## 4 Motion
+
+Every animated value in the prototype. There are no springs anywhere: the
+prototype is CSS transitions and three keyframe sets. `ARCHITECTURE.md` 7
+defines spring parameters for the shell, and the prototype uses none of them.
+
+### 4.1 Easing
+
+| Name | Value | Used for |
+|---|---|---|
+| Standard | `cubic-bezier(0.2, 0, 0, 1)` | Anything that moves |
+| Linear | `linear` | Anything that only changes colour or opacity |
+| Steps | `steps(1)` | The caret blink |
+| Ease-out cubic | `1 − (1 − p)³` | The results count-up, in JavaScript |
+
+One curve for movement. Colour and opacity are linear because they are feedback,
+not motion — a springy character-state change reads as lag, since the user's
+mental model is that the letter turns red the instant they mistype.
+
+### 4.2 Transitions
+
+| Property | Duration | Easing | Element |
+|---|---|---|---|
+| `color` | 60ms | linear | `.char` |
+| `transform` | 90ms | standard | `.caret` |
+| `transform` | 90ms | standard | Trace fill (`scaleX`) |
+| `transform` | 120ms | standard | Surface inner, line scroll |
+| `opacity` | 180ms | linear | Header |
+| `opacity` | 180ms | linear | Config bar |
+| `opacity` | 180ms | linear | Counter |
+| `opacity` | 180ms | linear | Hint |
+| `filter`, `opacity` | 180ms | linear | Test block, focus lost |
+
+Character colour is 60ms and must stay at or under 80ms.
+
+### 4.3 Keyframes
+
+```css
+@keyframes blink { 0%,45% { opacity: 1 } 55%,100% { opacity: 0 } }
+@keyframes draw  { to { stroke-dashoffset: 0 } }
+@keyframes rise  { from { opacity: 0; transform: translateY(12px) }
+                   to   { opacity: 1; transform: none } }
+```
+
+| Animation | Duration | Delay | Timing | Fill | Element |
+|---|---|---|---|---|---|
+| `blink` | 1.1s | — | `steps(1)`, infinite | — | Caret, idle only |
+| `draw` | 400ms | 150ms | linear | forwards | Results graph path |
+| `draw` | 500ms | — | linear | forwards | Progress chart path |
+| `rise` | 180ms | 350ms | standard | both | Results secondary stats |
+| `rise` | 180ms | 390ms | standard | both | Results card |
+
+### 4.4 The results sequence
+
+One orchestrated moment, roughly 700ms end to end. It is the emotional payoff of
+the loop and the only place worth spending animation budget.
+
+```
+0ms    numbers begin counting up, 400ms, ease-out cubic, via requestAnimationFrame
+150ms  graph path begins drawing left to right, 400ms
+350ms  secondary stats rise, 180ms
+390ms  weakness card rises, 180ms   ← one 40ms stagger step after the stats
+```
+
+The count-up runs in JavaScript because it interpolates text content, not a
+style. Everything else is CSS.
+
+### 4.5 Reduced motion
+
+The prototype's block:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .caret { transition: transform 40ms linear; animation: none !important }
+  *      { animation-duration: 0.001ms !important;
+           animation-delay: 0ms !important;
+           transition-duration: 0.001ms !important }
 }
-[data-theme="dark"]{
---canvas:#16181A;--surface:#1E2124;--ink:#E6E2D8;--muted:#75705F;--muted-strong:#948F80;
---accent:#3FB3B8;--error:#E0685A;--error-strong:#E0685A;--hairline:#2C3033;
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--canvas);-webkit-font-smoothing:antialiased}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-input,select{font:inherit;color:inherit}
-a{color:var(--accent);text-decoration:none}
-a:hover{color:var(--ink)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-::selection{background:var(--accent);color:var(--canvas)}
-.char{transition:color 60ms linear}
-.caret{transition:transform 90ms cubic-bezier(0.2,0,0,1)}
-@keyframes blink{0%,45%{opacity:1}55%,100%{opacity:0}}
-@keyframes draw{to{stroke-dashoffset:0}}
-@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion: reduce){
-.caret{transition:transform 40ms linear;animation:none !important}
-*{animation-duration:0.001ms !important;animation-delay:0ms !important;transition-duration:0.001ms !important}
-}
-</style>
-</helmet>
-<div data-theme="{{ theme }}" style="min-height:100vh;background:var(--canvas);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;display:flex;flex-direction:column">
+```
 
-  <header style="{{ chromeStyle }}">
-    <button onClick="{{ goTest }}" style="display:flex;align-items:center;gap:10px;padding:4px;border-radius:4px">
-      <span style="display:inline-flex;flex-direction:column;gap:3px">
-        <span style="display:flex;align-items:flex-end;gap:3px;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;line-height:0.86;letter-spacing:-0.01em;color:var(--ink)">
-          <span>crudu</span>
-          <span style="width:2px;height:11px;background:var(--accent)"></span>
-        </span>
-        <span style="height:1px;background:var(--accent)"></span>
-      </span>
-    </button>
-    <nav style="display:flex;align-items:center;gap:20px;font-size:13px;font-weight:500;letter-spacing:0.02em">
-      <button onClick="{{ goTest }}" style="{{ navTest }}">Test</button>
-      <button onClick="{{ goProgress }}" style="{{ navProgress }}">Progress</button>
-      <button onClick="{{ goWeakness }}" style="{{ navWeakness }}">Weaknesses</button>
-      <button onClick="{{ goSettings }}" style="{{ navSettings }}">Settings</button>
-    </nav>
-  </header>
+Intent: strip decorative motion, keep the caret moving at 40ms. A caret that
+teleports is harder to track visually, which is an accessibility regression, not
+an improvement.
 
-  <sc-if value="{{ isTest }}" hint-placeholder-val="{{ true }}">
-    <main style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:0 24px;position:relative">
-      <div style="{{ counterStyle }}">{{ counterText }}</div>
+**This block does not achieve its intent.** The universal
+`transition-duration: 0.001ms !important` outranks the unprefixed `.caret`
+declaration regardless of specificity, so the caret teleports. The
+implementation fix is recorded in `DECISIONS.md` 0.2. The intent above is what
+to build.
 
-      <div style="{{ testBlockStyle }}">
-        <div style="{{ configBarStyle }}">
-          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong);padding-bottom:32px">
-            <div style="display:flex;gap:10px">
-              <button onClick="{{ setModeTime }}" style="{{ modeTimeStyle }}">time</button>
-              <button onClick="{{ setModeWords }}" style="{{ modeWordsStyle }}">words</button>
-            </div>
-            <div style="width:1px;height:14px;background:var(--hairline)"></div>
-            <div style="display:flex;gap:10px">
-              <sc-for list="{{ valueOptions }}" as="opt" hint-placeholder-count="4">
-                <button onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
-              </sc-for>
-            </div>
-            <div style="width:1px;height:14px;background:var(--hairline)"></div>
-            <div style="display:flex;gap:10px">
-              <button onClick="{{ togglePunct }}" style="{{ punctStyle }}">punctuation</button>
-              <button onClick="{{ toggleNums }}" style="{{ numsStyle }}">numbers</button>
-            </div>
-          </div>
-        </div>
+---
 
-        <div onClick="{{ refocus }}" style="{{ surfaceWrapStyle }}">
-          <div style="{{ surfaceViewportStyle }}">
-            <div ref="{{ surfaceRef }}" style="{{ surfaceInnerStyle }}">
-              <sc-for list="{{ renderWords }}" as="w" hint-placeholder-count="24">
-                <span style="display:inline-flex;white-space:nowrap">
-                  <sc-for list="{{ w.chars }}" as="c" hint-placeholder-count="5">
-                    <span class="char" data-c="{{ c.caret }}" style="{{ c.style }}">{{ c.ch }}</span>
-                  </sc-for>
-                </span>
-              </sc-for>
-            </div>
-            <div class="caret" style="{{ caretStyle }}"></div>
-            <div style="{{ traceTrackStyle }}">
-              <div style="{{ traceStyle }}"></div>
-            </div>
-          </div>
-        </div>
+## 5 Copy
 
-        <div style="{{ hintStyle }}">Start typing</div>
-      </div>
+Every user-facing string in the prototype, verbatim. Sentence case throughout.
+Interface labels that name a control are lowercase where the prototype writes
+them lowercase — that is a deliberate register, not an inconsistency.
 
-      <sc-if value="{{ showPaused }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-          <span style="font-size:16px;color:var(--ink);letter-spacing:0.01em">Click or press any key to resume</span>
-        </div>
-      </sc-if>
+### 5.1 Navigation
 
-      <input ref="{{ inputRef }}" onKeyDown="{{ onKeyDown }}" onBlur="{{ onBlur }}" onFocus="{{ onFocus }}" onChange="{{ noop }}" value="" aria-label="Typing input" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
-    </main>
-  </sc-if>
+```
+crudu
+Test
+Progress
+Weaknesses
+Settings
+```
 
-  <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
-    <main style="flex:1;width:100%;max-width:860px;margin:0 auto;padding:8px 24px 96px">
-      <div style="display:flex;gap:64px;flex-wrap:wrap">
-        <div>
-          <div style="{{ wpmNumberStyle }}">{{ displayWpm }}</div>
-          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
-            <span style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">wpm</span>
-            <span style="{{ wpmDeltaStyle }}">{{ wpmDelta }}</span>
-          </div>
-          <sc-if value="{{ isPB }}" hint-placeholder-val="{{ false }}">
-            <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--accent);margin-top:6px">Best at this setting</div>
-          </sc-if>
-        </div>
-        <div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:56px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)">{{ displayAcc }}</div>
-          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
-            <span style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">accuracy</span>
-            <span style="{{ accDeltaStyle }}">{{ accDelta }}</span>
-          </div>
-        </div>
-      </div>
+### 5.2 Test screen
 
-      <div style="margin-top:48px;position:relative;height:180px;width:100%">
-        <svg viewBox="0 0 900 180" preserveAspectRatio="none" style="width:100%;height:180px;display:block;overflow:visible">
-          <line x1="0" y1="{{ medianY }}" x2="900" y2="{{ medianY }}" stroke="var(--hairline)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
-          <path d="{{ graphPath }}" fill="none" stroke="var(--accent)" stroke-width="2" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" vector-effect="non-scaling-stroke" style="animation:draw 400ms 150ms linear forwards"></path>
-          <sc-for list="{{ errorTicks }}" as="t" hint-placeholder-count="0">
-            <line x1="{{ t.x }}" y1="172" x2="{{ t.x }}" y2="180" stroke="var(--error)" stroke-width="2" vector-effect="non-scaling-stroke"></line>
-          </sc-for>
-        </svg>
-      </div>
+```
+time
+words
+punctuation
+numbers
+Start typing
+Click or press any key to resume
+```
 
-      <div style="display:flex;gap:48px;flex-wrap:wrap;margin-top:32px;animation:rise 180ms 350ms cubic-bezier(0.2,0,0,1) both">
-        <sc-for list="{{ secondary }}" as="s" hint-placeholder-count="4">
-          <div>
-            <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">{{ s.label }}</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:20px;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:4px">{{ s.value }}</div>
-          </div>
-        </sc-for>
-      </div>
+Counter, composed: `{seconds}s` in time mode, `{n} words` in words mode.
 
-      <div style="margin-top:48px;background:var(--surface);border:1px solid var(--hairline);border-radius:4px;padding:24px;animation:rise 180ms 390ms cubic-bezier(0.2,0,0,1) both">
-        <sc-if value="{{ calibrating }}" hint-placeholder-val="{{ false }}">
-          <div style="font-size:14px;color:var(--ink)">{{ calibratingCopy }}</div>
-        </sc-if>
-        <sc-if value="{{ showWeakCard }}" hint-placeholder-val="{{ true }}">
-          <div>
-            <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">Slowest transitions</div>
-            <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
-              <sc-for list="{{ weakTop }}" as="w" hint-placeholder-count="3">
-                <div style="display:flex;align-items:baseline;gap:16px">
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--ink);min-width:3ch">{{ w.pair }}</span>
-                  <span style="font-size:14px;color:var(--ink)">{{ w.body }}</span>
-                </div>
-              </sc-for>
-            </div>
-            <button onClick="{{ goWeakness }}" style="margin-top:24px;padding:9px 16px;border-radius:4px;background:var(--accent);color:var(--canvas);font-size:13px;font-weight:600;letter-spacing:0.02em">Drill these</button>
-          </div>
-        </sc-if>
-      </div>
+### 5.3 Results
 
-      <div style="display:flex;gap:24px;margin-top:32px;font-size:13px;font-weight:500;letter-spacing:0.02em">
-        <button onClick="{{ repeatTest }}" style="color:var(--muted-strong);padding:4px;border-radius:4px">Repeat test</button>
-        <button onClick="{{ newTest }}" style="color:var(--muted-strong);padding:4px;border-radius:4px">New test</button>
-      </div>
-    </main>
-  </sc-if>
+```
+wpm
+accuracy
+Best at this setting
+raw wpm
+consistency
+characters
+time
+Slowest transitions
+Drill these
+Repeat test
+New test
+```
 
-  <sc-if value="{{ isProgress }}" hint-placeholder-val="{{ false }}">
-    <main style="flex:1;width:100%;max-width:860px;margin:0 auto;padding:24px 24px 96px">
-      <sc-if value="{{ hasProgress }}" hint-placeholder-val="{{ true }}">
-        <div>
-          <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">7 day rolling median</div>
-          <div style="position:relative;margin-top:16px">
-            <svg viewBox="0 0 900 220" preserveAspectRatio="none" style="width:100%;height:220px;display:block;overflow:visible">
-              <line x1="0" y1="{{ progMedianY }}" x2="900" y2="{{ progMedianY }}" stroke="var(--hairline)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
-              <path d="{{ progPath }}" fill="none" stroke="var(--accent)" stroke-width="2" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" vector-effect="non-scaling-stroke" style="animation:draw 500ms linear forwards"></path>
-            </svg>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">
-            <span>{{ progFirstLabel }}</span>
-            <span>{{ progLastLabel }}</span>
-          </div>
+Composed strings:
 
-          <div style="margin-top:64px;font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">Improved this week</div>
-          <div style="display:flex;flex-direction:column;gap:16px;margin-top:20px;max-width:520px">
-            <sc-for list="{{ improved }}" as="r" hint-placeholder-count="4">
-              <div style="display:flex;align-items:baseline;gap:20px">
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--ink);min-width:3ch">{{ r.pair }}</span>
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--muted-strong);text-decoration:line-through">{{ r.before }}</span>
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--accent)">{{ r.after }}</span>
-              </div>
-            </sc-for>
-          </div>
-        </div>
-      </sc-if>
-      <sc-if value="{{ progressEmpty }}" hint-placeholder-val="{{ false }}">
-        <div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center">
-          <div style="font-size:20px;color:var(--ink)">Nothing plotted yet.</div>
-          <div style="font-size:14px;color:var(--muted-strong)">Run three tests and your first line appears here.</div>
-          <button onClick="{{ newTest }}" style="margin-top:12px;padding:9px 16px;border-radius:4px;background:var(--accent);color:var(--canvas);font-size:13px;font-weight:600;letter-spacing:0.02em">Run a test.</button>
-        </div>
-      </sc-if>
-    </main>
-  </sc-if>
+```
+{+|}{n} vs 7 day median          delta under wpm and accuracy
+first plotted test                delta with no history
+{ms}ms, against your average of {avg}ms
+Calibrating. Two more tests before drills unlock.
+Calibrating. One more test before drills unlock.
+```
 
-  <sc-if value="{{ isWeakness }}" hint-placeholder-val="{{ false }}">
-    <main style="flex:1;width:100%;max-width:860px;margin:0 auto;padding:24px 24px 96px">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">
-        <span>Tracked transitions, slowest first</span>
-        <span>{{ weakCountLabel }}</span>
-      </div>
-      <div style="display:flex;flex-direction:column;margin-top:24px">
-        <sc-for list="{{ weakRows }}" as="r" hint-placeholder-count="10">
-          <div style="{{ r.rowStyle }}">
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;min-width:4ch">{{ r.pair }}</span>
-            <span style="flex:1;height:6px;background:var(--hairline);border-radius:4px;overflow:hidden;min-width:80px">
-              <span style="{{ r.barStyle }}"></span>
-            </span>
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-variant-numeric:tabular-nums;min-width:7ch;text-align:right">{{ r.latency }}</span>
-            <span style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong);min-width:13ch;text-align:right">{{ r.note }}</span>
-          </div>
-        </sc-for>
-      </div>
-      <sc-if value="{{ weaknessEmpty }}" hint-placeholder-val="{{ false }}">
-        <div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center">
-          <div style="font-size:20px;color:var(--ink)">Nothing plotted yet.</div>
-          <div style="font-size:14px;color:var(--muted-strong)">Run three tests and your first line appears here.</div>
-          <button onClick="{{ newTest }}" style="margin-top:12px;padding:9px 16px;border-radius:4px;background:var(--accent);color:var(--canvas);font-size:13px;font-weight:600;letter-spacing:0.02em">Run a test.</button>
-        </div>
-      </sc-if>
-    </main>
-  </sc-if>
+The calibrating line switches from `Two more tests` to `One more test` at the
+appropriate count. Both forms are in the prototype.
 
-  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
-    <main style="flex:1;width:100%;max-width:520px;margin:0 auto;padding:24px 24px 96px">
-      <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">Test</div>
-      <div style="display:flex;flex-direction:column;gap:20px;margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Mode</label>
-          <div style="display:flex;gap:10px;font-size:13px;font-weight:500;letter-spacing:0.02em">
-            <button onClick="{{ setModeTime }}" style="{{ modeTimeStyle }}">time</button>
-            <button onClick="{{ setModeWords }}" style="{{ modeWordsStyle }}">words</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">{{ valueLabel }}</label>
-          <div style="display:flex;gap:10px;font-size:13px;font-weight:500;letter-spacing:0.02em">
-            <sc-for list="{{ valueOptions }}" as="opt" hint-placeholder-count="4">
-              <button onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
-            </sc-for>
-          </div>
-        </div>
-      </div>
+### 5.4 Progress
 
-      <div style="height:1px;background:var(--hairline);margin:32px 0"></div>
+```
+7 day rolling median
+Improved this week
+Nothing plotted yet.
+Run three tests and your first line appears here.
+Run a test.
+```
 
-      <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">Behaviour</div>
-      <div style="display:flex;flex-direction:column;gap:20px;margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Punctuation</label>
-          <button onClick="{{ togglePunct }}" style="{{ punctSwitchStyle }}">{{ punctLabel }}</button>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Numbers</label>
-          <button onClick="{{ toggleNums }}" style="{{ numsSwitchStyle }}">{{ numsLabel }}</button>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Stop on first error</label>
-          <button onClick="{{ toggleStop }}" style="{{ stopSwitchStyle }}">{{ stopLabel }}</button>
-        </div>
-      </div>
+Composed: axis labels as `{month}/{date}`, before and after values as `{ms}ms`.
 
-      <div style="height:1px;background:var(--hairline);margin:32px 0"></div>
+### 5.5 Weakness report
 
-      <div style="font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--muted-strong)">Appearance</div>
-      <div style="display:flex;flex-direction:column;gap:20px;margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Theme</label>
-          <div style="display:flex;gap:10px;font-size:13px;font-weight:500;letter-spacing:0.02em">
-            <sc-for list="{{ themeOptions }}" as="opt" hint-placeholder-count="3">
-              <button onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
-            </sc-for>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
-          <label style="font-size:14px;color:var(--ink)">Caret blink</label>
-          <button onClick="{{ toggleBlink }}" style="{{ blinkSwitchStyle }}">{{ blinkLabel }}</button>
-        </div>
-      </div>
+```
+Tracked transitions, slowest first
+Needs more data
+Nothing plotted yet.
+Run three tests and your first line appears here.
+Run a test.
+```
 
-      <sc-if value="{{ storageError }}" hint-placeholder-val="{{ false }}">
-        <div style="margin-top:32px;font-size:13px;font-weight:500;letter-spacing:0.02em;color:var(--error-strong)">Could not save that test. Your history is intact.</div>
-      </sc-if>
-    </main>
-  </sc-if>
-</div>
-</x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;defaultMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;time&quot;,&quot;words&quot;],&quot;default&quot;:&quot;time&quot;,&quot;tsType&quot;:&quot;'time'|'words'&quot;},&quot;defaultDuration&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:30,&quot;min&quot;:15,&quot;max&quot;:120,&quot;step&quot;:15,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;punctuation&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;demoData&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Data&quot;}}">
-const WORDS = "the be of and a to in he have it that for they with as not on she at by this we you do but from or which one would all will there say who make when can more if no man out other so what time up go about than into could state only new year some take come these know see use get like then first any work now may such give over think most even find day also after way many must look before great back through long where much should well people down own just because good each those feel seem how high too place little world very still nation hand old life tell write become here show house both between need mean call develop under last right move thing general school never same another begin while number part turn real leave might want point form off child few small since against ask late home interest large person end open public follow during present without again hold around possible head consider word program problem however lead system set order eye plan run keep face fact group play stand increase early course change help line".split(" ");
-const PUNCT = [",", ".", ";", ":", "'", "-", "(", ")"];
-const KEY = "crudu.history.v1";
+Composed: `{n} pairs`, `{n} samples`, `{ms}ms`.
 
-function median(a) {
-  if (!a.length) return 0;
-  const s = a.slice().sort((x, y) => x - y), m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
+### 5.6 Settings
 
-function seedHistory() {
-  const now = Date.now(), day = 86400000;
-  const pairs = ["ol", "ny", "br", "gh", "pl", "rt", "sw", "mn", "cr", "kv", "ws", "yu", "qu", "zi", "xt"];
-  const out = [];
-  const wpms = [69, 72, 71, 75, 74, 78, 77, 81, 80];
-  wpms.forEach((w, i) => {
-    const bigrams = {};
-    pairs.forEach((p, j) => {
-      const base = 110 + j * 16 - i * 3;
-      bigrams[p] = { n: 3 + ((i + j) % 9), total: base * (3 + ((i + j) % 9)) };
-    });
-    out.push({
-      ts: now - (8 - i) * day * 0.75,
-      wpm: w, acc: 94 + (i % 4), raw: w + 4 + (i % 3),
-      mode: "time", value: 30, bigrams
-    });
-  });
-  return out;
-}
+```
+Test
+Mode
+Duration
+Word count
+Behaviour
+Punctuation
+Numbers
+Stop on first error
+Appearance
+Theme
+Caret blink
+on
+off
+light
+dark
+```
 
-class Component extends DCLogic {
-  constructor(props) {
-    super(props);
-    let history = [];
-    let storageError = false;
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) history = JSON.parse(raw);
-    } catch (e) { storageError = true; }
-    if (!history.length && (props.demoData ?? true)) history = seedHistory();
-    this.state = {
-      screen: "test",
-      theme: props.theme || "light",
-      mode: props.defaultMode || "time",
-      value: props.defaultMode === "words" ? 25 : (props.defaultDuration ?? 30),
-      punct: props.punctuation ?? false,
-      nums: false,
-      stopOnError: false,
-      blink: true,
-      words: [], typed: [], wi: 0, input: "", renderStart: 0,
-      started: false, finished: false, paused: false, focused: true,
-      timeLeft: props.defaultDuration ?? 30,
-      caret: { left: 0, top: 0, row: 0 }, scrollRow: 0, lineW: 1,
-      keys: [], results: null, displayWpm: 0, displayAcc: 0,
-      history, storageError, narrow: false
-    };
-    this.inputRef = React.createRef();
-    this.surfaceRef = React.createRef();
-  }
+### 5.7 Errors
 
-  componentDidMount() {
-    this.gen();
-    this.measureNarrow();
-    this._rs = () => this.measureNarrow();
-    window.addEventListener("resize", this._rs);
-    this._doc = (e) => {
-      if (this.state.screen !== "test") return;
-      if (!this.state.focused && this.inputRef.current) this.inputRef.current.focus();
-    };
-    window.addEventListener("keydown", this._doc);
-    setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 0);
-  }
-  componentWillUnmount() {
-    window.removeEventListener("resize", this._rs);
-    window.removeEventListener("keydown", this._doc);
-    clearInterval(this._t);
-    cancelAnimationFrame(this._raf);
-  }
-  componentDidUpdate() { this.measureCaret(); }
+```
+Could not save that test. Your history is intact.
+```
 
-  measureNarrow() {
-    const n = window.innerWidth < 620;
-    if (n !== this.state.narrow) this.setState({ narrow: n }, () => this.measureCaret());
-  }
+The only error string in the product. It states what failed and what did not, in
+that order, and it asks the user to do nothing.
 
-  lineH() { return this.state.narrow ? 34 : 46; }
+### 5.8 Accessible names
 
-  measureCaret() {
-    const host = this.surfaceRef.current;
-    if (!host) return;
-    const el = host.querySelector('[data-c="1"],[data-c="2"]');
-    const lh = this.lineH();
-    let left = 0, top = 0;
-    if (el) {
-      left = el.offsetLeft + (el.dataset.c === "2" ? el.offsetWidth : 0);
-      top = el.offsetTop;
-    }
-    const row = Math.round(top / lh);
-    const scrollRow = Math.max(0, row - 1);
-    const lineW = host.clientWidth || 1;
-    const c = this.state.caret;
-    if (c.left !== left || c.top !== top || this.state.scrollRow !== scrollRow || this.state.lineW !== lineW) {
-      this.setState({ caret: { left, top, row }, scrollRow, lineW });
-    }
-  }
+```
+Typing input          aria-label on the hidden input
+```
 
-  gen() {
-    this._pausedMs = 0; this._pauseStart = null;
-    const count = this.state.mode === "words" ? this.state.value : Math.max(160, this.state.value * 4);
-    const out = [];
-    for (let i = 0; i < count; i++) {
-      let w = WORDS[Math.floor(Math.random() * WORDS.length)];
-      if (this.state.nums && Math.random() < 0.15) w = String(Math.floor(Math.random() * 9000) + 10);
-      else if (this.state.punct && Math.random() < 0.2) w = w + PUNCT[Math.floor(Math.random() * PUNCT.length)];
-      out.push(w);
-    }
-    this.setState({
-      words: out, typed: [], wi: 0, input: "", started: false, finished: false,
-      paused: false, keys: [], results: null, displayWpm: 0, displayAcc: 0,
-      timeLeft: this.state.mode === "time" ? this.state.value : 0,
-      caret: { left: 0, top: 0, row: 0 }, scrollRow: 0, renderStart: 0
-    }, () => this.measureCaret());
-    clearInterval(this._t);
-  }
+The only ARIA in the prototype.
 
-  start() {
-    if (this.state.started) return;
-    this._t0 = performance.now();
-    this.setState({ started: true });
-    if (this.state.mode === "time") {
-      this._t = setInterval(() => {
-        if (this.state.paused) return;
-        const left = this.state.value - Math.floor((performance.now() - this._t0 - (this._pausedMs || 0)) / 1000);
-        if (left <= 0) { this.setState({ timeLeft: 0 }); this.finish(); }
-        else this.setState({ timeLeft: left });
-      }, 100);
-    }
-  }
+---
 
-  onKeyDown = (e) => {
-    if (this.state.finished) return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const k = e.key;
-    if (k === "Tab") return;
-    if (k === "Escape") { e.preventDefault(); this.gen(); return;
-    }
-    if (k === "Backspace") {
-      e.preventDefault();
-      if (this.state.input.length) this.setState({ input: this.state.input.slice(0, -1) });
-      else if (this.state.wi > 0) {
-        const wi = this.state.wi - 1;
-        const typed = this.state.typed.slice();
-        this.setState({ wi, input: typed[wi] || "" });
-      }
-      return;
-    }
-    if (k === " ") {
-      e.preventDefault();
-      if (!this.state.input.length) return;
-      this.start();
-      const typed = this.state.typed.slice();
-      typed[this.state.wi] = this.state.input;
-      const wi = this.state.wi + 1;
-      const rs = this.state.renderStart;
-      this.setState({ typed, wi, input: "", renderStart: wi - rs > 60 ? rs + 30 : rs }, () => {
-        if (this.state.mode === "words" && wi >= this.state.words.length) this.finish();
-      });
-      return;
-    }
-    if (k.length !== 1) return;
-    e.preventDefault();
-    this.start();
-    const word = this.state.words[this.state.wi] || "";
-    const pos = this.state.input.length;
-    const correct = word[pos] === k;
-    if (this.state.stopOnError && !correct) return;
-    const keys = this.state.keys.concat([{ t: performance.now() - this._t0 - (this._pausedMs || 0), ch: k, prev: pos > 0 ? word[pos - 1] : null, correct }]);
-    const input = this.state.input + k;
-    this.setState({ keys, input }, () => {
-      if (this.state.mode === "words" && this.state.wi === this.state.words.length - 1 && input.length >= word.length) {
-        const typed = this.state.typed.slice();
-        typed[this.state.wi] = input;
-        this.setState({ typed }, () => this.finish());
-      }
-    });
-  };
+## 6 Bans
 
-  onBlur = () => {
-    this.setState(s => {
-      const pause = s.started && !s.finished;
-      if (pause) this._pauseStart = performance.now();
-      return { focused: false, paused: pause };
-    });
-  };
-  onFocus = () => {
-    this.setState(s => {
-      if (s.paused && this._pauseStart) {
-        this._pausedMs = (this._pausedMs || 0) + (performance.now() - this._pauseStart);
-        this._pauseStart = null;
-      }
-      return { focused: true, paused: false };
-    });
-  };
-  refocus = () => { this.inputRef.current && this.inputRef.current.focus(); };
-  noop = () => {};
+Patterns the prototype contains none of. Introducing one would break the system
+rather than extend it.
 
-  finish() {
-    clearInterval(this._t);
-    const keys = this.state.keys;
-    const elapsed = this.state.mode === "time" ? this.state.value : Math.max(1, (keys.length ? keys[keys.length - 1].t : 1000) / 1000);
-    const correct = keys.filter(k => k.correct).length;
-    const wpm = Math.round((correct / 5) / (elapsed / 60));
-    const raw = Math.round((keys.length / 5) / (elapsed / 60));
-    const acc = keys.length ? Math.round((correct / keys.length) * 100) : 100;
+**On the test surface**
 
-    const buckets = {};
-    keys.forEach(k => { const s = Math.floor(k.t / 1000); (buckets[s] = buckets[s] || []).push(k); });
-    const secs = Object.keys(buckets).map(Number).sort((a, b) => a - b);
-    const series = secs.map(s => ({ s, wpm: Math.round((buckets[s].filter(k => k.correct).length / 5) * 60), err: buckets[s].some(k => !k.correct) }));
-    const mean = series.reduce((a, b) => a + b.wpm, 0) / (series.length || 1);
-    const sd = Math.sqrt(series.reduce((a, b) => a + Math.pow(b.wpm - mean, 2), 0) / (series.length || 1));
-    const consistency = series.length ? Math.max(0, Math.round(100 - (sd / (mean || 1)) * 100)) : 100;
+- **No live WPM.** The counter shows remaining time or remaining words, nothing
+  else. A live speed number pulls the eye off the text
+- **No colour for anything but the four character states.** No active-word
+  highlight, no next-word preview treatment, no progress tint
+- **No scroll cue.** The viewport clips at three lines. No fade, no gradient
+  mask, no arrow, no scrollbar
+- **No JavaScript animation library.** Characters and caret are CSS transitions
+- **No animation of `width`, `left`, `top` or `margin`.** The caret uses
+  `translate3d`, the trace uses `scaleX`, the line scroll uses `translate3d`
 
-    const bigrams = {};
-    let prevT = 0;
-    keys.forEach((k, i) => {
-      const lat = i === 0 ? 0 : k.t - keys[i - 1].t;
-      if (i > 0 && k.correct && keys[i - 1].correct && k.prev) {
-        const key = k.prev + k.ch;
-        const b = bigrams[key] = bigrams[key] || { n: 0, total: 0 };
-        b.n++; b.total += Math.min(lat, 900);
-      }
-      prevT = k.t;
-    });
+**Layout and chrome**
 
-    const entry = { ts: Date.now(), wpm, acc, raw, mode: this.state.mode, value: this.state.value, bigrams };
-    const history = this.state.history.concat([entry]);
-    let storageError = false;
-    try { localStorage.setItem(KEY, JSON.stringify(history)); } catch (e) { storageError = true; }
+- **No three-equal-card rows.** The results secondary stats are bare label/value
+  pairs in a flex row. There is exactly one card on the whole results screen
+- **No decorative status dots**, badges, pills or chips outside the config bar
+- **No icons.** The entire interface is text plus one 2 × 11px accent block in
+  the logo
+- **No modals, dialogs, drawers, tooltips or popovers**
+- **No footer**
+- **No tabs, accordions or disclosure widgets**
 
-    const sameSetting = this.state.history.filter(h => h.mode === entry.mode && h.value === entry.value);
-    const isPB = sameSetting.length > 0 && wpm > Math.max.apply(null, sameSetting.map(h => h.wpm));
-    const med = median(this.state.history.map(h => h.wpm));
-    const medAcc = median(this.state.history.map(h => h.acc));
+**Visual**
 
-    this.setState({
-      finished: true, screen: "results", history, storageError,
-      results: { wpm, acc, raw, consistency, chars: keys.length, elapsed, series, isPB, med, medAcc, bigrams },
-      displayWpm: 0, displayAcc: 0
-    }, () => this.countUp(wpm, acc));
-  }
+- **No shadows** except the caret glow
+- **No gradients**
+- **No radius other than 4px**
+- **No second accent colour.** One accent, one error, one hairline
+- **No third font family**
+- **No uppercase or wide-tracked display type.** Tracking never exceeds 0.02em
+  and the only negative tracking is the logo's −0.01em
+- **No borders on buttons** except the settings switches
 
-  countUp(wpm, acc) {
-    const t0 = performance.now();
-    const step = () => {
-      const p = Math.min(1, (performance.now() - t0) / 400);
-      const e = 1 - Math.pow(1 - p, 3);
-      this.setState({ displayWpm: Math.round(wpm * e), displayAcc: Math.round(acc * e) });
-      if (p < 1) this._raf = requestAnimationFrame(step);
-    };
-    this._raf = requestAnimationFrame(step);
-  }
+**Behaviour**
 
-  allBigrams() {
-    const agg = {};
-    this.state.history.forEach(h => {
-      Object.keys(h.bigrams || {}).forEach(k => {
-        const a = agg[k] = agg[k] || { n: 0, total: 0 };
-        a.n += h.bigrams[k].n; a.total += h.bigrams[k].total;
-      });
-    });
-    return Object.keys(agg).map(k => ({ pair: k, n: agg[k].n, ms: Math.round(agg[k].total / agg[k].n) }));
-  }
+- **No hover-only affordances.** Nothing is discoverable only on hover, which is
+  necessary since the prototype specifies no hover states at all
+- **No numbers that update in place during a test.** The results count-up is the
+  single exception and it runs after the test is over
+- **No interruption from a storage failure.** The error surfaces on the settings
+  screen, after the fact
 
-  chip(active, dim) {
-    return {
-      padding: "4px 8px", borderRadius: 4,
-      color: active ? "var(--accent)" : "var(--muted-strong)",
-      background: active ? "color-mix(in oklab, var(--accent) 12%, transparent)" : "transparent",
-      fontWeight: 500, letterSpacing: "0.02em", opacity: dim ? 0.6 : 1
-    };
-  }
-  navBtn(on) {
-    return { color: on ? "var(--ink)" : "var(--muted-strong)", padding: "4px", borderRadius: 4, fontWeight: on ? 600 : 500, letterSpacing: "0.02em" };
-  }
-  sw(on) {
-    return { padding: "5px 12px", borderRadius: 4, border: "1px solid " + (on ? "var(--accent)" : "var(--hairline)"), color: on ? "var(--accent)" : "var(--muted-strong)", fontSize: 13, fontWeight: 500, letterSpacing: "0.02em", minWidth: 64 };
-  }
+---
 
-  renderVals() {
-    const s = this.state;
-    const active = s.screen === "test" && s.started && !s.finished && !s.paused;
-    const lh = this.lineH();
-    const fs = s.narrow ? 20 : 28;
-    const maxCh = s.narrow ? 32 : 62;
+## 7 Quality floor
 
-    const rStart = s.renderStart || 0;
-    const renderWords = s.words.slice(rStart, rStart + 120).map((w, k0) => {
-      const i = rStart + k0;
-      const t = i === s.wi ? s.input : (s.typed[i] || (i < s.wi ? "" : null));
-      const chars = [];
-      for (let j = 0; j < w.length; j++) {
-        let color = "var(--muted)", ul = "none";
-        if (t != null && j < t.length) {
-          if (t[j] === w[j]) color = "var(--ink)";
-          else { color = "var(--error)"; ul = "2px solid var(--error)"; }
-        }
-        chars.push({
-          ch: w[j],
-          caret: i === s.wi && j === s.input.length && s.input.length <= w.length ? "1" : "0",
-          style: { color, borderBottom: ul, lineHeight: lh + "px", display: "inline-block" }
-        });
-      }
-      if (t && t.length > w.length) {
-        for (let j = w.length; j < t.length; j++) {
-          chars.push({ ch: t[j], caret: "0", style: { color: "var(--error)", opacity: 0.6, borderBottom: "2px solid var(--error)", lineHeight: lh + "px", display: "inline-block" } });
-        }
-      }
-      if (i === s.wi && s.input.length >= chars.length && chars.length) chars[chars.length - 1].caret = "2";
-      return { chars };
-    });
+### 7.1 Responsive
 
-    const caretTop = s.caret.top - s.scrollRow * lh;
-    const traceRow = s.caret.row - s.scrollRow;
-    const r = s.results || {};
-    const series = r.series || [];
-    const maxW = Math.max(60, ...series.map(p => p.wpm));
-    const gx = (i) => series.length > 1 ? (i / (series.length - 1)) * 900 : 0;
-    const gy = (v) => 170 - (v / maxW) * 160;
-    const graphPath = series.length > 1 ? series.map((p, i) => (i ? "L" : "M") + gx(i).toFixed(1) + " " + gy(p.wpm).toFixed(1)).join(" ") : "";
-    const errorTicks = series.map((p, i) => p.err ? { x: gx(i).toFixed(1) } : null).filter(Boolean);
+One breakpoint: **620px**. In the prototype it is a JavaScript
+`window.innerWidth < 620` check, which phase 2 should implement as a media
+query.
 
-    const weak = this.allBigrams().filter(b => b.n >= 2).sort((a, b) => b.ms - a.ms);
-    const avg = Math.round(this.allBigrams().reduce((a, b) => a + b.ms, 0) / (this.allBigrams().length || 1));
-    const slowest = Math.max(1, ...weak.map(b => b.ms));
-    const calibrating = s.history.length < 3;
+| | Wide | Narrow |
+|---|---|---|
+| Surface type | 28px | 20px |
+| Surface line height | 46px | 34px |
+| Surface measure | 62ch | 32ch |
 
-    const days = {};
-    s.history.forEach(h => { const d = new Date(h.ts); const k = d.getMonth() + "/" + d.getDate(); (days[k] = days[k] || []).push(h.wpm); });
-    const dayKeys = Object.keys(days);
-    const dayVals = dayKeys.map(k => median(days[k]));
-    const roll = dayVals.map((_, i) => median(dayVals.slice(Math.max(0, i - 6), i + 1)));
-    const pmin = Math.min(...roll) - 4, pmax = Math.max(...roll) + 4;
-    const py = (v) => 200 - ((v - pmin) / Math.max(1, pmax - pmin)) * 180;
-    const progPath = roll.length > 1 ? roll.map((v, i) => (i ? "L" : "M") + ((i / (roll.length - 1)) * 900).toFixed(1) + " " + py(v).toFixed(1)).join(" ") : "";
+Nothing else changes. Every other screen is fluid: `max-width` plus 24px
+gutters, with `flex-wrap` on the headline row, the secondary stats and the
+config bar.
 
-    const half = Math.floor(s.history.length / 2);
-    const aggHalf = (arr) => {
-      const m = {};
-      arr.forEach(h => Object.keys(h.bigrams || {}).forEach(k => { const a = m[k] = m[k] || { n: 0, total: 0 }; a.n += h.bigrams[k].n; a.total += h.bigrams[k].total; }));
-      return m;
-    };
-    const A = aggHalf(s.history.slice(0, half)), B = aggHalf(s.history.slice(half));
-    const improved = Object.keys(B).filter(k => A[k]).map(k => ({
-      pair: k, b: Math.round(A[k].total / A[k].n), a: Math.round(B[k].total / B[k].n)
-    })).filter(x => x.a < x.b).sort((x, y) => (y.b - y.a) - (x.b - x.a)).slice(0, 5)
-      .map(x => ({ pair: x.pair, before: x.b + "ms", after: x.a + "ms" }));
+A 360px layout is **not specified in prototype**. The phase 5 brief asks for
+20px type and a 32ch measure at 360px, which matches the narrow tokens above, so
+the open question is the header and nav rather than the surface.
 
-    const valueSets = { time: [15, 30, 60, 120], words: [10, 25, 50, 100] };
-    const valueOptions = valueSets[s.mode].map(v => ({
-      label: String(v),
-      style: this.chip(s.value === v),
-      onClick: () => this.setState({ value: v, timeLeft: s.mode === "time" ? v : 0 }, () => this.gen())
-    }));
+### 7.2 Focus
 
-    const themeOptions = ["light", "dark"].map(t => ({
-      label: t, style: this.chip(s.theme === t), onClick: () => this.setState({ theme: t })
-    }));
+```css
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+```
 
-    const wpmDelta = r.med ? (r.wpm >= r.med ? "+" : "") + (r.wpm - Math.round(r.med)) + " vs 7 day median" : "first plotted test";
-    const accDelta = r.medAcc ? (r.acc >= r.medAcc ? "+" : "") + (r.acc - Math.round(r.medAcc)) + " vs 7 day median" : "first plotted test";
-    const deltaStyle = (up) => ({ fontSize: 13, fontWeight: 500, letterSpacing: "0.02em", color: up ? "var(--accent)" : "var(--muted-strong)" });
+One global rule, no per-component overrides. Every control is a real `<button>`,
+so tab order follows document order and nothing needs a `tabindex`.
 
-    return {
-      theme: s.theme,
-      isTest: s.screen === "test", isResults: s.screen === "results",
-      isProgress: s.screen === "progress", isWeakness: s.screen === "weakness", isSettings: s.screen === "settings",
-      goTest: () => { this.setState({ screen: "test" }, () => { this.gen(); this.refocus(); }); },
-      goProgress: () => this.setState({ screen: "progress" }),
-      goWeakness: () => this.setState({ screen: "weakness" }),
-      goSettings: () => this.setState({ screen: "settings" }),
-      navTest: this.navBtn(s.screen === "test" || s.screen === "results"),
-      navProgress: this.navBtn(s.screen === "progress"),
-      navWeakness: this.navBtn(s.screen === "weakness"),
-      navSettings: this.navBtn(s.screen === "settings"),
+Known accessibility gaps in the prototype, all **not specified in prototype**:
 
-      chromeStyle: {
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24,
-        padding: s.screen === "test" ? "16px 24px" : "16px 24px",
-        maxWidth: 1200, width: "100%", margin: "0 auto",
-        opacity: active ? 0 : 1, pointerEvents: active ? "none" : "auto",
-        transition: "opacity 180ms linear", flexDirection: "row"
-      },
+- Settings rows use `<label>` elements that are not associated with their
+  controls. The controls are buttons, so `for` cannot bind to them
+- Toggle buttons carry no `aria-pressed`; chips carry no `aria-current` or
+  `role="radio"`
+- The graph and progress SVGs have no `<title>`, `<desc>` or text alternative
+- The weakness bars have no text alternative beyond the adjacent latency value,
+  which is arguably sufficient
+- Neither the counter nor the results are announced; there is no `aria-live`
+  anywhere
 
-      configBarStyle: {
-        display: "flex", justifyContent: "center", width: "100%",
-        opacity: active ? 0 : 1, pointerEvents: active ? "none" : "auto",
-        transition: "opacity 180ms linear"
-      },
+### 7.3 Reduced motion
 
-      counterStyle: {
-        position: "absolute", left: 24, top: 8, fontSize: 13, fontWeight: 500, letterSpacing: "0.02em",
-        color: "var(--muted-strong)", fontFamily: "'IBM Plex Mono',monospace",
-        opacity: s.started && !s.finished ? 1 : 0, transition: "opacity 180ms linear"
-      },
-      counterText: s.mode === "time" ? s.timeLeft + "s" : Math.max(0, s.words.length - s.wi) + " words",
+See 4.5. Strip decorative motion, keep the caret transition at 40ms. The
+prototype's implementation of this does not work; the intent is what to build.
 
-      testBlockStyle: {
-        width: "100%", maxWidth: maxCh + "ch", marginTop: "calc(46vh - " + (lh * 1.5 + 60) + "px)",
-        display: "flex", flexDirection: "column", alignItems: "stretch",
-        filter: s.paused ? "blur(4px)" : "none", opacity: s.paused ? 0.5 : 1,
-        transition: "filter 180ms linear, opacity 180ms linear"
-      },
-      surfaceWrapStyle: { position: "relative", cursor: "text" },
-      surfaceViewportStyle: { position: "relative", height: lh * 3 + 10 + "px", overflow: "hidden" },
-      surfaceInnerStyle: {
-        position: "relative", fontFamily: "'IBM Plex Mono','Commit Mono',monospace",
-        fontSize: fs + "px", fontWeight: 420, lineHeight: lh + "px", letterSpacing: 0,
-        display: "flex", flexWrap: "wrap", gap: "0 1ch", whiteSpace: "normal", alignContent: "flex-start",
-        transform: "translate3d(0," + (-s.scrollRow * lh) + "px,0)", transition: "transform 120ms cubic-bezier(0.2,0,0,1)"
-      },
-      caretStyle: {
-        position: "absolute", left: 0, top: 0, width: 2, height: fs + 4 + "px",
-        background: "var(--accent)", boxShadow: "0 0 6px color-mix(in oklab, var(--accent) 30%, transparent)",
-        transform: "translate3d(" + s.caret.left + "px," + (caretTop + (lh - fs - 4) / 2) + "px,0)",
-        animation: active || !s.blink ? "none" : "blink 1.1s steps(1) infinite",
-        pointerEvents: "none"
-      },
-      traceTrackStyle: {
-        position: "absolute", left: 0, right: 0, height: 1, background: "var(--hairline)",
-        top: (traceRow + 1) * lh - 4 + "px", overflow: "hidden"
-      },
-      traceStyle: {
-        height: 1, background: "var(--accent)", transformOrigin: "left",
-        transform: "scaleX(" + Math.min(1, s.caret.left / s.lineW) + ")",
-        transition: "transform 90ms cubic-bezier(0.2,0,0,1)"
-      },
-      hintStyle: {
-        marginTop: 32, textAlign: "center", fontSize: 13, fontWeight: 500, letterSpacing: "0.02em",
-        color: "var(--muted-strong)", opacity: s.started ? 0 : 1, transition: "opacity 180ms linear"
-      },
-      showPaused: s.paused,
-      renderWords, inputRef: this.inputRef, onKeyDown: this.onKeyDown, onBlur: this.onBlur, onFocus: this.onFocus, refocus: this.refocus, noop: this.noop,
-      surfaceRef: this.surfaceRef,
+### 7.4 Contrast
 
-      modeTimeStyle: this.chip(s.mode === "time"), modeWordsStyle: this.chip(s.mode === "words"),
-      setModeTime: () => this.setState({ mode: "time", value: 30, timeLeft: 30 }, () => this.gen()),
-      setModeWords: () => this.setState({ mode: "words", value: 25 }, () => this.gen()),
-      valueOptions, valueLabel: s.mode === "time" ? "Duration" : "Word count",
-      punctStyle: this.chip(s.punct), numsStyle: this.chip(s.nums),
-      togglePunct: () => this.setState({ punct: !s.punct }, () => this.gen()),
-      toggleNums: () => this.setState({ nums: !s.nums }, () => this.gen()),
-      toggleStop: () => this.setState({ stopOnError: !s.stopOnError }),
-      toggleBlink: () => this.setState({ blink: !s.blink }),
-      punctSwitchStyle: this.sw(s.punct), numsSwitchStyle: this.sw(s.nums),
-      stopSwitchStyle: this.sw(s.stopOnError), blinkSwitchStyle: this.sw(s.blink),
-      punctLabel: s.punct ? "on" : "off", numsLabel: s.nums ? "on" : "off",
-      stopLabel: s.stopOnError ? "on" : "off", blinkLabel: s.blink ? "on" : "off",
-      themeOptions, storageError: s.storageError,
+Measured against the tokens in section 1. Thresholds: 4.5:1 for text under 24px
+regular or under 18.66px bold, 3:1 for larger text and for user-interface
+components.
 
-      displayWpm: s.displayWpm, displayAcc: s.displayAcc + "%",
-      wpmNumberStyle: {
-        fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, fontSize: 56, lineHeight: 1,
-        fontVariantNumeric: "tabular-nums", color: r.isPB ? "var(--accent)" : "var(--ink)"
-      },
-      isPB: !!r.isPB,
-      wpmDelta, accDelta,
-      wpmDeltaStyle: deltaStyle(r.med ? r.wpm >= r.med : false),
-      accDeltaStyle: deltaStyle(r.medAcc ? r.acc >= r.medAcc : false),
-      graphPath, errorTicks, medianY: r.med ? gy(r.med).toFixed(1) : "170",
-      secondary: [
-        { label: "raw wpm", value: r.raw || 0 },
-        { label: "consistency", value: (r.consistency || 0) + "%" },
-        { label: "characters", value: r.chars || 0 },
-        { label: "time", value: Math.round(r.elapsed || 0) + "s" }
-      ],
-      calibrating: calibrating,
-      calibratingCopy: "Calibrating. " + (3 - s.history.length > 1 ? "Two more tests" : "One more test") + " before drills unlock.",
-      showWeakCard: !calibrating,
-      weakTop: weak.slice(0, 3).map(b => ({ pair: b.pair, body: b.ms + "ms, against your average of " + avg + "ms" })),
-      repeatTest: () => this.setState({ screen: "test" }, () => { this.gen(); this.refocus(); }),
-      newTest: () => this.setState({ screen: "test" }, () => { this.gen(); this.refocus(); }),
+Most pairings clear comfortably: `--ink` on `--canvas` is 11.72:1 light and
+13.76:1 dark; `--ink` on `--surface` is 12.72:1 and 12.51:1; `--muted-strong` on
+`--canvas` is 5.08:1 and 5.51:1; `--canvas` on `--accent` — the primary button —
+is 4.81:1 and 7.08:1.
 
-      hasProgress: s.history.length >= 3, progressEmpty: s.history.length < 3,
-      progPath, progMedianY: py(median(roll)).toFixed(1),
-      progFirstLabel: dayKeys[0] || "", progLastLabel: dayKeys[dayKeys.length - 1] || "",
-      improved,
+Six pairings do not clear. They are recorded here as measurements, not as
+proposed changes:
 
-      weaknessEmpty: !weak.length,
-      weakCountLabel: weak.length + " pairs",
-      weakRows: weak.slice(0, 24).map((b, i) => {
-        const low = b.n < 8;
-        return {
-          pair: b.pair, latency: b.ms + "ms", note: low ? "Needs more data" : b.n + " samples",
-          rowStyle: {
-            display: "flex", alignItems: "center", gap: 20, padding: "12px 0",
-            color: low ? "var(--muted-strong)" : "var(--ink)",
-            borderBottom: (i + 1) % 5 === 0 ? "1px solid var(--hairline)" : "none"
-          },
-          barStyle: {
-            display: "block", height: "100%", width: (b.ms / slowest) * 100 + "%",
-            background: low ? "var(--muted-strong)" : "var(--accent)", borderRadius: 4
-          }
-        };
-      })
-    };
-  }
-}
-</script>
-</body>
-</html>
+| Pairing | Light | Dark | Needs | Where |
+|---|---|---|---|---|
+| `--muted` on `--canvas` | 3.69:1 | 3.59:1 | 3:1 at 28px, **4.5:1 at 20px** | Pending characters. Passes wide, fails below 620px |
+| `--error` on `--canvas` | 4.35:1 | 5.34:1 | 3:1 at 28px, **4.5:1 at 20px** | Wrong characters. Light fails below 620px; dark passes |
+| `--error` at 0.6 on `--canvas` | 2.42:1 | 2.69:1 | 3:1 / 4.5:1 | Extra characters. Fails at every size in both themes |
+| `--accent` on the 12% accent tint | **4.11:1** | 5.84:1 | 4.5:1 | Active config chip label. Light fails |
+| `--hairline` on `--canvas` | 1.23:1 | 1.34:1 | 3:1 | Dividers, median line, bar tracks, switch borders when off |
+| `--surface` on `--canvas` | 1.09:1 | 1.10:1 | 3:1 | Card fill against the page |
+
+Two notes on the last two rows. `--hairline` and `--surface` are boundary
+treatments rather than components that convey state, and WCAG 1.4.11 does not
+require 3:1 for a purely decorative divider. The switch *border* is the
+exception: it is the off-state indicator, and at 1.23:1 the off state is not
+perceivable by border alone — though the `off` label carries the state in text,
+which satisfies the requirement by a different route.
+
+The paused state multiplies everything by `opacity: 0.5`. `--ink` at 0.5 on
+`--canvas` measures 2.85:1 light and 4.32:1 dark. This is a deliberate
+"suspended" affordance and the overlay line sits above it at full opacity, so
+the blurred text is decorative while paused.
+
+Pending and correct characters are distinguished by colour alone — `--muted`
+against `--ink`, at 3.17:1 light and 3.83:1 dark. Wrong characters carry a 2px
+underline as a second signal, per invariant 9. The pending/correct distinction
+has no second signal available: both are the same glyph in the same position,
+and the only thing that can differ is colour.

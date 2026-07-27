@@ -125,7 +125,7 @@
  * 40ms. A caret that teleports is harder to track, which is an accessibility
  * regression rather than an improvement (ARCHITECTURE.md section 7).
  *
- * docs/DESIGN.md gets this wrong: its universal `transition-duration: 0.001ms
+ * The prototype gets this wrong: its universal `transition-duration: 0.001ms
  * !important` outranks the unprefixed `.caret` rule that follows it, so the
  * caret ends up teleporting. The !important below is what restores the
  * documented behaviour. See docs/DECISIONS.md.

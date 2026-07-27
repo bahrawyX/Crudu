@@ -25,8 +25,8 @@ const TEST_SURFACE = ['src/components/test/**/*.{ts,tsx}']
  * work synchronously. On a keystroke that is a guaranteed frame drop.
  *
  * The first four are the ones invariant 3 names. The rest force layout in
- * exactly the same way, and the design prototype in docs/DESIGN.md positions
- * its caret with offsetLeft, offsetTop, offsetWidth and clientWidth. A rule
+ * exactly the same way, and docs/design-prototype.html positions its caret
+ * with offsetLeft, offsetTop, offsetWidth and clientWidth. A rule
  * that stopped at the four named APIs would let three of those four straight
  * through, which is the opposite of the point. See docs/DECISIONS.md.
  */

@@ -19,7 +19,8 @@ const TEST_SURFACE_DIR = 'src/components/test'
 /**
  * Layout-reading APIs. The first four are the ones invariant 3 names. The rest
  * force synchronous layout in exactly the same way and the design prototype in
- * docs/DESIGN.md uses three of them, so leaving them out would leave the hole
+ * docs/design-prototype.html uses three of them, so leaving them out would
+ * leave the hole
  * this rail exists to close. See docs/DECISIONS.md.
  */
 const LAYOUT_READS = [

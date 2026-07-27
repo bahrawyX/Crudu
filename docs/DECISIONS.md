@@ -19,7 +19,8 @@ Added: `getClientRects`, `offsetLeft`, `offsetTop`, `offsetParent`,
 `clientWidth`, `clientHeight`, `clientLeft`, `clientTop`, `scrollWidth`,
 `scrollHeight`.
 
-**Why.** The design prototype in `docs/DESIGN.md` positions its caret like this:
+**Why.** The design prototype in `docs/design-prototype.html` positions its
+caret like this:
 
 ```js
 left = el.offsetLeft + (el.dataset.c === '2' ? el.offsetWidth : 0)
@@ -36,12 +37,12 @@ force a synchronous style-and-layout flush in the same way.
 properties outside the keystroke path, the fix is to move that code out of
 `src/components/test/`, which is where it belongs anyway.
 
-### 0.2 The reduced-motion block departs from docs/DESIGN.md
+### 0.2 The reduced-motion block departs from the prototype
 
 **Decision.** `src/styles/index.css` keeps the caret transition alive under
 `prefers-reduced-motion: reduce`, at 40ms, using `!important`.
 
-**Why.** DESIGN.md's own block cannot do what it intends:
+**Why.** The prototype's own block cannot do what it intends:
 
 ```css
 @media (prefers-reduced-motion: reduce){
