@@ -22,6 +22,9 @@ export {
   WORD_LOW_WATER,
 } from './constants'
 
+export { createEngine, resultDurationMs } from './engine'
+export type { Engine, EngineOptions } from './engine'
+
 export {
   charStates,
   classifyKey,
@@ -31,6 +34,18 @@ export {
   isWordClean,
 } from './keystrokes'
 export type { KeyAction } from './keystrokes'
+
+export {
+  accuracy,
+  bigramLatencies,
+  computeMetrics,
+  consistency,
+  countChars,
+  netWpm,
+  rawWpm,
+} from './metrics'
+
+export { createInitialState, reduce } from './reducer'
 
 export type {
   BigramSample,
