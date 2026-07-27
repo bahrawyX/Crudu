@@ -512,6 +512,33 @@
     margin-top: var(--space-32);
   }
 
+  /*
+   * Tab then Enter restarts. The control is first in tab order and shows itself
+   * when focused: the design has no restart button on the surface, and adding a
+   * permanent one would put a second thing on a screen whose whole argument is
+   * that there is only the text.
+   */
+  .restart-control {
+    position: absolute;
+    left: var(--pad-gutter);
+    top: var(--space-8);
+    z-index: 2;
+    padding: var(--pad-chip);
+    border-radius: var(--radius);
+    font-size: var(--text-label);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
+    color: var(--accent-text);
+    background: var(--chip-tint);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .restart-control:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   /* ---- Header, docs/DESIGN.md 3.0 -------------------------------------- */
 
   .chrome {

@@ -210,13 +210,26 @@ export function App() {
 
   const chrome = (screen: RouteName, body: ReactNode): ReactNode => (
     <>
+      {/*
+       * First in tab order, ahead of the header, so Tab then Enter restarts from
+       * anywhere. It reveals itself on focus: the design has no restart button,
+       * and a permanent one would put a second thing on a screen whose whole
+       * argument is that there is only the text.
+       */}
+      <button type="button" className="restart-control" onClick={restart}>
+        Restart test
+      </button>
       <Header current={screen} hidden={status.status === 'running'} onNavigate={setView} />
       {body}
     </>
   )
 
   if (view === 'weakness') {
-    return chrome('weakness', <WeaknessReport scores={scores} onNewTest={restart} />)
+    // The report shows every tracked pair, including the under-sampled ones, and
+    // marks them. scoreAll's default eight sample floor drops them before the
+    // screen ever sees them, so the 'Needs more data' state in DESIGN.md 3.6
+    // would be unreachable. The drill still uses the filtered scores.
+    return chrome('weakness', <WeaknessReport scores={scoreAll(table, 1)} onNewTest={restart} />)
   }
 
   if (view === 'progress') {
