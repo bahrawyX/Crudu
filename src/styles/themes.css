@@ -8,7 +8,7 @@
  * always wins over the media query because :root[data-theme='...'] carries an
  * attribute selector and the media-query rule is scoped to :root:not([data-theme]).
  *
- * Every declaration block below must declare the same ten properties. A test
+ * Every declaration block below must declare the same eleven properties. A test
  * in tests/tokens.test.ts fails the build if one drifts.
  */
 
@@ -25,6 +25,7 @@
   --error: var(--light-error);
   --error-strong: var(--light-error-strong);
   --hairline: var(--light-hairline);
+  --track: var(--light-track);
 }
 
 :root[data-theme='dark'] {
@@ -39,6 +40,7 @@
   --error: var(--dark-error);
   --error-strong: var(--dark-error-strong);
   --hairline: var(--dark-hairline);
+  --track: var(--dark-track);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +56,7 @@
     --error: var(--dark-error);
     --error-strong: var(--dark-error-strong);
     --hairline: var(--dark-hairline);
+  --track: var(--dark-track);
   }
 }
 

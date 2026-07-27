@@ -22,6 +22,11 @@
   --light-error: #bf3b2e;
   --light-error-strong: #a83527;
   --light-hairline: #d6d0c4;
+  /* Track for meters and the rules that separate rows of them. --hairline is
+   * 1.23:1 against the canvas, which is fine for a divider and wrong for the
+   * unfilled half of a progress bar: the extent of the meter is part of the
+   * meter. 3.05:1. See docs/DECISIONS.md 5.2. */
+  --light-track: #888372;
 
   /* Narrow-viewport substitutes. Below 620px the surface steps from 28px to
    * 20px, which moves pending and wrong characters off the 3:1 large-text bar
@@ -46,6 +51,8 @@
   --dark-error: #e0685a;
   --dark-error-strong: #e0685a;
   --dark-hairline: #2c3033;
+  /* 3.13:1 against the dark canvas. */
+  --dark-track: #65685c;
 
   /* Narrow-viewport substitutes, as above. Dark --error clears 4.5:1 at 5.34:1
    * unchanged, so only --muted is substituted. */

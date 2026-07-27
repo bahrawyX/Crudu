@@ -1,10 +1,12 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 
+import type { TargetSet } from '../../adaptive'
 import type { Engine, TestConfig } from '../../engine'
 
 import { Caret } from './Caret'
 import { ConfigBar } from './ConfigBar'
+import { DrillBanner } from './DrillBanner'
 import { CONFIG_BAR, SURFACE } from './constants'
 import { TestSurfaceProvider, useTestSurface } from './context'
 import { Counter } from './Counter'
@@ -32,9 +34,12 @@ export type TestScreenProps = {
   readonly engine: Engine
   readonly config: TestConfig
   readonly onRestart: () => void
+  /** Present only while a drill is running, and only then. */
+  readonly targets?: TargetSet
+  readonly onStopDrilling?: () => void
 }
 
-export function TestScreen({ engine, config, onRestart }: TestScreenProps) {
+export function TestScreen({ engine, config, onRestart, targets, onStopDrilling }: TestScreenProps) {
   const metrics = useSurfaceMetrics()
   const store = useMemo<SurfaceStore | null>(
     () => (metrics === null ? null : createSurfaceStore(engine, metrics.capacity)),
@@ -105,7 +110,7 @@ export function TestScreen({ engine, config, onRestart }: TestScreenProps) {
     <TestSurfaceProvider value={{ engine, store, metrics }}>
       <main className="test-screen" style={style}>
         <Counter />
-        <TestBlock />
+        <TestBlock targets={targets} onStopDrilling={onStopDrilling} />
         <FocusOverlay />
         <HiddenInput />
       </main>
@@ -117,7 +122,12 @@ export function TestScreen({ engine, config, onRestart }: TestScreenProps) {
  * The block dims behind a blur while paused, and the hint disappears on the
  * first keystroke. Both follow the status channel, so neither touches a word.
  */
-function TestBlock() {
+type TestBlockProps = {
+  readonly targets: TargetSet | undefined
+  readonly onStopDrilling: (() => void) | undefined
+}
+
+function TestBlock({ targets, onStopDrilling }: TestBlockProps) {
   const { engine } = useTestSurface()
   const status = useSyncExternalStore(
     engine.subscribeToStatus,
@@ -127,7 +137,15 @@ function TestBlock() {
 
   return (
     <div className="test-block" data-paused={status.status === 'paused' ? 'true' : 'false'}>
-      <ConfigBar />
+      {targets === undefined || onStopDrilling === undefined ? (
+        <ConfigBar />
+      ) : (
+        <DrillBanner
+          targets={targets}
+          hidden={status.status === 'running'}
+          onStop={onStopDrilling}
+        />
+      )}
 
       <div className="surface-wrap">
         <div className="surface-viewport">

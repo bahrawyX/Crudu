@@ -25,6 +25,7 @@
   --color-error: var(--error);
   --color-error-strong: var(--error-strong);
   --color-hairline: var(--hairline);
+  --color-track: var(--track);
 }
 
 @layer base {
@@ -333,7 +334,7 @@
   .screen {
     width: 100%;
     margin: 0 auto;
-    padding: var(--space-8) var(--pad-gutter) var(--space-96);
+    padding: var(--space-24) var(--pad-gutter) var(--space-96);
   }
 
   .screen-content {
@@ -509,6 +510,127 @@
     display: flex;
     gap: var(--space-24);
     margin-top: var(--space-32);
+  }
+
+  /* ---- Header, docs/DESIGN.md 3.0 -------------------------------------- */
+
+  .chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-24);
+    width: 100%;
+    max-width: var(--width-shell);
+    margin: 0 auto;
+    padding: var(--pad-header);
+    transition: opacity var(--duration-fade) linear;
+  }
+
+  .chrome[data-hidden='true'] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    padding: var(--space-4);
+    border-radius: var(--radius);
+  }
+
+  .logo-stack {
+    display: inline-flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .logo-word {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3);
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-logo);
+    line-height: var(--leading-logo);
+    letter-spacing: var(--tracking-logo);
+    color: var(--ink);
+  }
+
+  .logo-tick {
+    width: var(--logo-tick-width);
+    height: var(--logo-tick-height);
+    background: var(--accent);
+  }
+
+  .logo-rule {
+    height: var(--hairline-width);
+    background: var(--accent);
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-20);
+    font-size: var(--text-label);
+    letter-spacing: var(--tracking-label);
+  }
+
+  .nav-item {
+    padding: var(--space-4);
+    border-radius: var(--radius);
+    font-weight: var(--weight-medium);
+    color: var(--muted-strong);
+    transition: color var(--duration-char) linear;
+  }
+
+  .nav-item[data-active='true'] {
+    color: var(--ink);
+    font-weight: var(--weight-semibold);
+  }
+
+  @media (hover: hover) {
+    .nav-item:hover,
+    .logo:hover .logo-word {
+      color: var(--ink);
+    }
+  }
+
+  .nav-item:active {
+    opacity: var(--pressed-opacity);
+  }
+
+  /* ---- Drill banner, proposed. See docs/DECISIONS.md 5.3 ---------------- */
+
+  .drill-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-12);
+    padding-bottom: var(--space-16);
+    transition: opacity var(--config-fade, 180ms) linear;
+  }
+
+  .drill-banner[data-hidden='true'] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .drill-pairs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+  }
+
+  .drill-pair {
+    font-family: var(--font-mono);
+    font-size: var(--text-body);
+    font-weight: var(--weight-semibold);
+    color: var(--accent-text);
+    background: var(--chip-tint);
+    padding: var(--pad-chip);
+    border-radius: var(--radius);
   }
 
   /* ---- Weakness report and progress, docs/DESIGN.md 3.5 and 3.6 --------- */
@@ -773,6 +895,13 @@
   .chip[aria-disabled='true']:hover {
     color: var(--muted-strong);
     background: transparent;
+  }
+}
+
+@media (max-width: 380px) {
+  .screen,
+  .test-screen {
+    --pad-gutter: 16px;
   }
 }
 

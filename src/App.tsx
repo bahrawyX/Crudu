@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 import {
@@ -6,6 +7,7 @@ import {
   calibration,
   createDrillSource,
   fromRecords,
+  refreshTargets,
   scoreAll,
   toRecords,
 } from './adaptive'
@@ -16,6 +18,8 @@ import { ProgressScreen, WeaknessReport } from './components/progress'
 import type { ProgressPoint } from './components/progress'
 import { ResultsScreen } from './components/results'
 import { TestScreen } from './components/test'
+import { Header } from './components/ui/Header'
+import type { RouteName } from './routes/paths'
 import { loadBigrams, loadTests, saveBigrams } from './storage/db'
 import type { StoredTest } from './storage/db'
 import { buildHistory, compare, median } from './storage/history'
@@ -32,7 +36,7 @@ import { createWordSource } from './words/source'
  * results are made of.
  */
 
-type View = 'test' | 'weakness' | 'progress'
+type View = RouteName
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const DATE = new Intl.DateTimeFormat(undefined, { month: 'numeric', day: 'numeric' })
@@ -69,6 +73,7 @@ export function App() {
   const [tests, setTests] = useState<readonly StoredTest[]>([])
   const [table, setTable] = useState<BigramTable>(() => new Map())
   const [view, setView] = useState<View>('test')
+  const lastWords = useRef<readonly string[]>([])
   const persistedId = useRef<string | null>(null)
 
   const drilling = prefs.adaptive && tests.length >= CALIBRATION_TESTS
@@ -126,7 +131,45 @@ export function App() {
   const restart = useCallback(() => {
     setView('test')
     engine.reset(nextTest())
+    lastWords.current = engine.getState().words.map((word) => word.text)
   }, [engine, nextTest])
+
+  /**
+   * Shift+Tab repeats the identical test: the same words, not merely the same
+   * configuration. Keeping the list is what makes the second run a comparison
+   * of the typing rather than of the luck of the draw.
+   */
+  const repeat = useCallback(() => {
+    const words = lastWords.current
+
+    setView('test')
+    engine.reset({
+      config,
+      wordSource: () => words,
+      id: crypto.randomUUID(),
+      startedAt: Date.now(),
+    })
+  }, [engine, config])
+
+  useEffect(() => {
+    lastWords.current = engine.getState().words.map((word) => word.text)
+  }, [engine])
+
+  // A user who has to reach for the mouse in a typing app has been failed.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Tab' && event.shiftKey) {
+        event.preventDefault()
+        repeat()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [repeat])
 
   useEffect(() => {
     if (result === null || persistedId.current === result.id) {
@@ -163,19 +206,50 @@ export function App() {
 
   const history = useMemo(() => buildHistory(tests), [tests])
   const scores = useMemo(() => scoreAll(table), [table])
+  const targets = useMemo(() => refreshTargets(table), [table])
+
+  const chrome = (screen: RouteName, body: ReactNode): ReactNode => (
+    <>
+      <Header current={screen} hidden={status.status === 'running'} onNavigate={setView} />
+      {body}
+    </>
+  )
 
   if (view === 'weakness') {
-    return <WeaknessReport scores={scores} onNewTest={restart} />
+    return chrome('weakness', <WeaknessReport scores={scores} onNewTest={restart} />)
   }
 
   if (view === 'progress') {
-    return <ProgressScreen points={progressPoints(tests, 7)} onNewTest={restart} />
+    return chrome(
+      'progress',
+      <ProgressScreen points={progressPoints(tests, 7)} onNewTest={restart} />,
+    )
+  }
+
+  if (view === 'settings') {
+    // The settings screen is deferred. An honest placeholder beats a nav entry
+    // that goes nowhere, and every control it would hold is on the test screen.
+    return chrome(
+      'settings',
+      <main className="screen screen-panel">
+        <div className="empty-state" data-height="half">
+          <div className="empty-title">Nothing to set yet.</div>
+          <div className="empty-body">
+            Mode, duration, punctuation and numbers are on the test screen.
+          </div>
+          <button type="button" className="button-primary" onClick={restart}>
+            Run a test.
+          </button>
+        </div>
+      </main>,
+    )
   }
 
   if (result !== null) {
     const previous = tests.filter((test) => test.id !== result.id)
 
-    return (
+    return chrome(
+      'test',
       <ResultsScreen
         result={result}
         comparison={compare(
@@ -195,9 +269,17 @@ export function App() {
         onProgress={() => {
           setView('progress')
         }}
-      />
+      />,
     )
   }
 
-  return <TestScreen engine={engine} config={config} onRestart={restart} />
+  return chrome(
+    'test',
+    <TestScreen
+      engine={engine}
+      config={config}
+      onRestart={restart}
+      {...(drilling ? { targets, onStopDrilling: prefs.toggleAdaptive } : {})}
+    />,
+  )
 }

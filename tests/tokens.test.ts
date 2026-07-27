@@ -105,6 +105,7 @@ describe('tokens.css carries both palettes', () => {
       'muted',
       'muted-strong',
       'surface',
+      'track',
     ])
     expect(darkBase).toEqual(lightBase)
   })

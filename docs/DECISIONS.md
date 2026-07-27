@@ -637,3 +637,68 @@ Storing "has not chosen" as a value rather than inferring it from the absence of
 a record is the only version of this that does not have a third form.
 
 Found the same way as the first two: by taking a screenshot on a dark system.
+
+---
+
+## Phase 5 — quality floor
+
+### 5.1 The header and its four nav entries
+
+**Decision.** `src/components/ui/Header.tsx`, built from the design's own
+lockup: the wordmark, a 2 x 11px accent caret after it, a 1px accent rule under
+it, and the four nav entries `Test`, `Progress`, `Weaknesses`, `Settings`. It
+fades out on the first keystroke like the config bar.
+
+**Why.** Three screens sat flush against the top of the viewport and the
+weakness report was reachable only from a button on the results card, which is
+not navigation, it is a patch. The design drew this header in 3.0 and it was
+simply never built.
+
+`Settings` leads to an honest placeholder. A nav entry that goes nowhere is
+worse than one that says so, and every control the settings screen would hold is
+already on the test screen.
+
+### 5.2 --track, and a misclassification corrected
+
+**Decision.** A new palette entry: `--light-track: #888372` at 3.05:1 against
+the light canvas, `--dark-track: #65685c` at 3.13:1 against the dark one. Used
+for the weakness bar tracks and the every-fifth-row rules. Dividers keep
+`--hairline`.
+
+**Why, and I got this wrong in batch 0.** DECISIONS 0.1 listed `--hairline` on
+`--canvas` at 1.23:1 among the boundary treatments WCAG 1.4.11 exempts. That is
+right for a divider and wrong for the unfilled half of a meter: the extent of a
+progress bar is part of reading the progress bar, so it is a component that
+conveys information rather than decoration. On the weakness report the tracks
+were invisible and the bars read as floating lines.
+
+The fill against the track is 1.58:1 light and 2.26:1 dark, which does not clear
+3:1 — in the light theme it cannot, because `--accent` is dark and any track
+that clears 3:1 against a light canvas necessarily sits between them. What was
+broken was that the meter had no visible extent at all; the fill is distinguished
+from the canvas at 4.81:1 and by hue.
+
+### 5.3 The drill banner
+
+**Mine, not the design's.** `docs/DESIGN.md` has no drill screen. The
+differentiator had no surface saying you were using it, which is how a feature
+nobody notices becomes a feature nobody values.
+
+**Decision.** A banner where the config bar sits, in the same 13px muted-strong
+register: the word `Drilling`, the first five targeted pairs as accent-tinted
+mono chips at the size the results card uses for a pair, and one text button back
+to plain English. It fades on the first keystroke like everything else.
+
+**Why a banner and not a screen.** A drill *is* the test screen with different
+words in it. A second surface would mean two implementations of the caret, the
+trace and the line scroll, and the single thing phase 2 spent its whole budget
+on is that there is exactly one of those. Every value it uses is a token that
+already existed.
+
+### 5.4 Shift+Tab repeats the same words, not the same settings
+
+**Decision.** The word list of the running test is kept, and Shift+Tab replays
+it exactly.
+
+**Why.** "Repeat the identical test" has to mean identical, or the second run
+compares your typing against a different draw and the comparison says nothing.
