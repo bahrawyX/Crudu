@@ -1,0 +1,8 @@
+export { TestScreen } from './TestScreen'
+export { measureCharWidth, whenFontReady, clearCharWidthCache } from './charWidth'
+export type { FontSpec } from './charWidth'
+export { caretColumn, caretLine, layoutWords, lineRange, renderedLength, scrollRowFor } from './layout'
+export type { SurfaceLayout, WordPlacement } from './layout'
+export { createSurfaceStore } from './surfaceStore'
+export type { CaretPosition, SurfaceStore } from './surfaceStore'
+export { CARET, CHAR, CONFIG_BAR, COUNTER, FOCUS_LOST, SURFACE, TRACE } from './constants'
