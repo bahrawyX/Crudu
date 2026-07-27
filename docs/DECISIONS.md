@@ -320,3 +320,155 @@ around it is pure.
 a negative elapsed value poisons every metric downstream. Clamping is the only
 option that keeps the log replayable: dropping the event would lose a real
 keystroke, and accepting it would make `t` run backwards.
+
+---
+
+## Phase 2 — test surface
+
+### 2.1 Hover, pressed and disabled states
+
+**These are mine, not the design's.** `docs/DESIGN.md` 3.8 records that the
+prototype specifies no interaction states for any control. The only hover rule in
+the whole stylesheet is `a:hover { color: var(--ink) }`, and there are no anchors
+in the markup. The config bar cannot ship without them, so they are proposed
+here and derived from that one rule rather than invented from nothing.
+
+**The principle.** Hover strengthens the foreground; it never introduces a
+colour. That is exactly what `a:hover` does, moving from `--accent` to `--ink`.
+
+| State | Neutral control | Accent control |
+|---|---|---|
+| Rest | `--muted-strong` on transparent | `--accent-text` on the 12% accent tint |
+| Hover | `--ink` on a 6% ink wash | `--accent-text` on an 18% accent tint |
+| Pressed | `opacity: 0.72` | `opacity: 0.72` |
+| Disabled | `opacity: 0.45`, `cursor: not-allowed`, no hover response | same |
+
+Three new tokens: `--hover-wash-alpha: 6%`, `--pressed-opacity: 0.72`,
+`--disabled-opacity: 0.45`, plus `--chip-tint-alpha-hover: 18%`.
+
+**Why these values.** The hover wash is 6% because 12% is already the active
+state and hover must not be mistaken for selection. Pressed is opacity rather
+than movement because the prototype has no transform on any control and adding
+one would introduce a motion language the design does not have. Hover is behind
+`@media (hover: hover)` so a touch device does not leave a control looking hovered
+after a tap.
+
+**Contrast.** Disabled at 0.45 puts `--muted-strong` at roughly 2:1, which fails
+AA. WCAG 1.4.3 exempts inactive controls, and a disabled control that reads at
+full strength is worse than one that fails a ratio it is not held to. Nothing in
+phase 2 is disabled; the convention exists so phase 3 does not have to invent it
+in a hurry.
+
+### 2.2 The wavy underline is half the weight of the solid one
+
+**Decision.** `--extra-underline-width: 1px` against `--error-underline-width: 2px`.
+
+**Why.** A wave's amplitude scales with its thickness, so a 2px wave occupies
+roughly three times the vertical space of a 2px rule. On screen at 4x it reads as
+a red smear rather than as a wave, and at normal size it blurs into a solid blob
+— which defeats the point, since the wave exists to be *distinguishable from* the
+solid rule (DECISIONS 0.2's replacement for the opacity that used to separate
+them). At 1px the crests are legible and the mark stays subordinate to the glyph.
+
+It is also the right hierarchy. A wrong character is a harder error than an extra
+one and should carry the heavier mark.
+
+Judged by rendering both and looking at them, not from the stylesheet.
+
+### 2.3 Line breaking is computed, not delegated to CSS
+
+**Decision.** Each line is its own `nowrap` flex row, filled by a greedy wrap in
+`src/components/test/layout.ts`. The browser wraps nothing.
+
+**Why.** The prototype uses `flex-wrap` and then asks the DOM where the caret
+ended up — `el.offsetLeft`, `el.offsetTop`, `host.clientWidth`. That is three
+layout reads on every keystroke and it is what invariant 3 exists to prevent.
+
+The alternative to computing was to keep CSS wrapping and mirror its algorithm in
+JavaScript for the caret. That works only while the two agree exactly, and a
+half-pixel of rounding in a flex gap would put the caret on the wrong line with
+nothing to catch it. Owning the line breaks means there is nothing to agree with:
+a character's column is the number of characters before it, and the caret is
+`column * charWidth`.
+
+**Cost.** A word that grows past its own length reflows the rest of its line,
+which is a re-render of the affected lines rather than of one word. That happens
+only when the user types past the end of a word, and it is a genuine layout
+change rather than an avoidable one.
+
+### 2.4 The line measure is fitted to the viewport
+
+**Decision.** The measure is `min(62, floor((innerWidth - 48) / charWidth))`,
+recomputed at mount and on resize, never on a keystroke.
+
+**Why.** `docs/DESIGN.md` specifies 62 characters, which at 28px IBM Plex Mono
+needs about 1090px of viewport. Between the 620px breakpoint and that width the
+design has no answer, and the prototype papers over it by letting CSS wrap. Since
+this build owns the line breaks, it has to know the real width, so it reads
+`window.innerWidth` — a viewport property, sampled twice in a session, not a
+per-element measurement on the keystroke path.
+
+This is a gap in the design rather than a departure from it: DESIGN.md 3.8 lists
+"a 360px layout" as unspecified, and the same hole runs all the way up to 1090px.
+
+### 2.5 The caret, the trace and the line scroll bypass React
+
+**Decision.** Those three subscribe to the surface store and set
+`element.style.transform` directly. No state, no re-render.
+
+**Why.** ARCHITECTURE.md 4.3 spells out the mechanism: JavaScript sets only
+`el.style.transform = translate3d(...)`. Routing it through React would add a
+render, a diff and a commit to the one element that moves eight times a second,
+for no benefit — there is nothing to diff, the value is always different.
+
+A style write is not a style read. Nothing here asks the browser a question.
+
+### 2.6 One layout at the start of a test, none afterwards
+
+**Observation, not a decision.** A trace of 40 keystrokes inside one word records
+zero Layout entries. A trace that includes the first keystroke records exactly
+one: the config bar and the hint change state as the test starts, and the counter
+appears.
+
+The counter is the unavoidable case. Its text changes once a second and a text
+change is a layout in every engine. It carries `contain: layout style` and a
+reserved `min-width: 8ch` so that layout cannot escape the element, and the
+performance spec removes it before tracing so the claim being measured — that a
+keystroke causes no layout — is the claim actually under test.
+
+### 2.7 The latency report separates paint from processing
+
+**Decision.** `src/perf/latency.ts` reports two sets of percentiles: `paint`,
+from Event Timing's `duration`, and `processing`, from
+`processingEnd - processingStart`. The budget is enforced against `processing`.
+
+**Why.** `duration` is quantised to 8ms by the Event Timing specification and
+bounded below by the display's frame interval, so on a 60Hz screen the only
+values a correct application can report are 8 and 16. A budget of "under 8ms"
+measured that way is a budget of "zero", which is not achievable by any code.
+
+`processing` is the handler: every millisecond of it is ours, and it is the
+number that moves when the code gets worse. Both are reported, because the one
+the user feels is still the first one.
+
+### 2.8 Escape restarts the test
+
+**Decision.** Ported from the prototype, which binds Escape to regenerate.
+
+**Why.** Without it the screen is a dead end once the timer runs out, and there
+is no results screen until phase 3. It is the prototype's own behaviour rather
+than an invention, and phase 5 owns the full keyboard map.
+
+### 2.9 The character state attribute uses the engine's name
+
+**Decision.** `.char[data-state='incorrect']`, not `wrong`.
+
+**Why.** `docs/DESIGN.md` calls the state "wrong" and the engine's `CharState`
+calls it `incorrect`. One of them has to give, and the attribute is written by
+the engine's value, so making CSS match the engine removes a translation step
+from the hot path. The token names still read `--underline-wrong`, because those
+describe the design's vocabulary rather than the engine's.
+
+This cost a real bug: the first render had the CSS on `wrong` and the engine
+emitting `incorrect`, so mistyped characters showed no error styling at all until
+it was caught on screen.
