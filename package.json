@@ -17,6 +17,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "bundle": "node scripts/check-bundle.mjs",
     "words": "node scripts/build-wordlists.mjs"
   },
   "dependencies": {
