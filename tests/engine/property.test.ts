@@ -195,5 +195,11 @@ describe('property: the engine survives anything', () => {
         expect(engine.getBigrams(), `${context}: virtual test kept bigrams`).toEqual([])
       }
     }
-  })
+    // 10,000 seeded runs finish in about a second on a developer machine and
+    // took 5.8s on a shared CI runner, against vitest's 5s default. The sweep is
+    // deterministic, so what failed was the clock, not the engine — and the
+    // instinct to cut RUNS until it fits is how a property test quietly stops
+    // being one. 60s is ten times the observed runner cost and still short
+    // enough to catch a genuine hang.
+  }, 60_000)
 })
