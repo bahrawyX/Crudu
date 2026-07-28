@@ -712,3 +712,66 @@ it exactly.
 
 **Why.** "Repeat the identical test" has to mean identical, or the second run
 compares your typing against a different draw and the comparison says nothing.
+
+### 5.5 The narrow header wraps the nav onto its own row
+
+**Mine, not the design's.** `docs/DESIGN.md` 3.8 lists the sub-620px header as
+unspecified. The header shipped in 5.1 with only the wide layout, and it
+overflowed every phone viewport: `nav right=416` against a 375px screen.
+
+**Decision.** Below 620px the header wraps. The wordmark centres on the first
+row, the four nav entries take the full width of the second and distribute with
+`space-between`. Padding steps from `16px 24px` to `12px 16px` and the nav gap
+from 20px to 10px. Every value is an existing token. The wide layout is
+untouched.
+
+**Why not one row.** It does not fit, and that is arithmetic rather than taste.
+The four labels measure 247px of text before a single gap is added, the wordmark
+is 60px, and a 320px viewport leaves 288px of content box once the narrowest
+sensible padding is taken. Even at zero gaps a single row needs 307px. The only
+way to hold one row is to take the label below the design's 13px, which trades a
+specified value for an unspecified one in the wrong direction.
+
+**Why not a hamburger.** Four entries. A menu that hides four words behind a tap
+costs a tap, an animation, a focus trap and an aria-expanded contract, to save
+28px of vertical space. The second row is cheaper for the user and cheaper to
+maintain.
+
+**Cost.** The header is 87px tall on a phone instead of 60px. That is 27px of
+vertical space on the screen that can least afford it, and it is why the block
+offset in 5.6 is derived from the real header height rather than assumed.
+
+### 5.6 The block offset is derived, not assumed
+
+**Correction.** `docs/DESIGN.md` 266 puts the middle of the three surface lines
+at 46% of viewport height, and the margin that achieves it subtracted a flat
+`60px`. That 60px was the config bar, and it was written when nothing sat above
+the config bar. The header added in 5.1 went in above it and nothing subtracted
+it, so the line the whole screen exists to show sat 59px low on desktop and
+130px low on a phone — measured, not estimated.
+
+**Decision.** The margin subtracts `--surface-stack`, which is
+`--header-height + --config-bar-height`, both pinned per breakpoint:
+
+| | header | config bar | sum |
+| --- | --- | --- | --- |
+| above 620px | 60 | 60 | 120 |
+| 620px to 356px | 87 | 103 | 190 |
+| 355px and below | 87 | 147 | 234 |
+
+**Why measured constants rather than a layout read.** Invariant 3 forbids
+reading layout on the keystroke path, and this is a mount-time value, so a
+`getBoundingClientRect` here would not break it. It would still be the wrong
+shape: the surface is positioned by arithmetic everywhere else, from the caret
+column to the line scroll, and one measured offset in the middle of that would
+be the only number nobody could predict from the tokens. The values above are
+reproducible from the stylesheet.
+
+**Cost.** The config bar wraps, so the sum is a step function and each step is a
+breakpoint that has to be kept honest. The step between 360px and 350px was
+found by measurement and the breakpoint sits between the two. If a chip is ever
+added to the config bar these numbers move, which is why the browser check
+asserts the position rather than trusting them.
+
+**Verified.** The middle line lands within 1px of 46vh at 1440, 900, 700, 620,
+480, 375, 360, 340 and 320px. It was 52.6vh and 62.1vh before.

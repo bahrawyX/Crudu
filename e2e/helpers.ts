@@ -198,6 +198,35 @@ export async function assertNoOverflow(page: Page, viewportWidth: number): Promi
   expect(offenders, 'elements past the right edge of the viewport').toEqual([])
 }
 
+/**
+ * docs/DESIGN.md 266. The middle of the three lines sits at 46% of viewport
+ * height, and every other number on the screen is arranged around that one.
+ *
+ * Asserted rather than trusted because the margin that achieves it subtracts the
+ * heights of the header and the config bar as pinned constants, and the config
+ * bar wraps. It was 59px out on desktop and 130px on a phone for two batches
+ * without anything noticing. See docs/DECISIONS.md 5.6.
+ */
+export async function assertBlockAnchor(page: Page): Promise<void> {
+  const measured = await page.evaluate(() => {
+    const middle = document.querySelectorAll('.surface-line')[1]?.getBoundingClientRect()
+
+    return {
+      centre: middle === undefined ? null : middle.top + middle.height / 2,
+      target: window.innerHeight * 0.46,
+    }
+  })
+
+  expect(measured.centre, 'no second surface line to anchor against').not.toBeNull()
+
+  const centre = measured.centre ?? 0
+  const drift = Math.round(centre - measured.target)
+
+  expect(Math.abs(drift), `middle surface line is ${String(drift)}px from 46vh`).toBeLessThanOrEqual(
+    2,
+  )
+}
+
 export async function assertTheme(page: Page, theme: Theme): Promise<void> {
   const canvas = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim().toLowerCase(),

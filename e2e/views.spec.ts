@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test'
 import {
   POPULATED_BIGRAMS,
   POPULATED_TESTS,
+  assertBlockAnchor,
   assertNoOverflow,
   assertTheme,
   assertVisible,
@@ -131,6 +132,7 @@ for (const viewport of VIEWPORTS) {
           '.trace-track',
           '.hint',
         ])
+        await assertBlockAnchor(page)
         await assertNoOverflow(page, viewport.width)
         await assertBans(page, false)
         await assertAxeClean(page, 'test idle')

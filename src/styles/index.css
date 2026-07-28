@@ -191,7 +191,9 @@
      * stacked above the surface is reserved back out of this margin, so the
      * text does not move when it appears. */
     --block-offset: 0px;
-    margin-top: calc(46vh - (var(--line-height) * 1.5 + 60px) - var(--block-offset));
+    margin-top: calc(
+      46vh - (var(--line-height) * 1.5 + var(--surface-stack)) - var(--block-offset)
+    );
     transition:
       filter var(--duration-fade) linear,
       opacity var(--duration-fade) linear;
@@ -933,6 +935,47 @@
   .chip[aria-disabled='true']:hover {
     color: var(--muted-strong);
     background: transparent;
+  }
+}
+
+/*
+ * The narrow header. docs/DESIGN.md 3.8 lists the sub-620px header as
+ * unspecified, so this is proposed rather than drawn. See docs/DECISIONS.md 5.5.
+ *
+ * The nav takes its own row under the wordmark. One row cannot be made to fit:
+ * the four labels measure 247px of text before a single gap, the wordmark is
+ * 60px, and a 320px viewport has 288px of content box to put them in. Shrinking
+ * the label below 13px is the alternative and it is worse — the type scale is
+ * the design's, the arithmetic is not.
+ *
+ * space-between rather than a fixed gap, because the labels have no reason to
+ * be centred as a clump when the row exists to be a row.
+ */
+@media (max-width: 620px) {
+  :root {
+    --header-height: 87px;
+    --config-bar-height: 103px;
+  }
+
+  .chrome {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-10);
+    padding: var(--space-12) var(--space-16);
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-10);
+  }
+}
+
+/* The config bar takes a third row somewhere between 360px and 350px, measured.
+ * The breakpoint sits between the two rather than on either. */
+@media (max-width: 355px) {
+  :root {
+    --config-bar-height: 147px;
   }
 }
 
