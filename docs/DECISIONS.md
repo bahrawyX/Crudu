@@ -800,3 +800,39 @@ opens the second row with a leading hairline instead. The information a divider
 carries is "these two things are side by side", and once they are not, there is
 nothing to say.
 
+
+### 5.8 The performance gates run in CI, in a second job
+
+**Decision.** `.github/workflows/ci.yml` gains a bundle budget step in the
+existing job and a second job that runs the whole Playwright suite, including
+the latency and layout specs from phase 2. This closes 0.9, which deferred e2e
+out of phase 0 on the grounds that phase 5 would add the regression that
+genuinely needs a browser.
+
+**Why two jobs.** The e2e job downloads Chromium and the verify job has no use
+for it. Split, they run in parallel and the wall clock is the slower of the two
+rather than the sum.
+
+**The bundle number is gzip of the emitted bytes, not the sum of the modules.**
+`rollup-plugin-visualizer` reports a `gzipLength` per module and adding those up
+is not the size of the bundle: gzip does not compose, and one chunk sharing a
+dictionary compresses better than its pieces do apart. The visualizer output is
+what attributes a failure; the gate reads the real files. What counts as
+"initial" comes from the emitted `index.html` — the module script plus anything
+modulepreloaded — so that a later route split adds lazy chunks the user does not
+wait for without them silently entering the budget.
+
+kB is 1000 bytes here, matching what `vite build` prints. The two conventions
+differ by 2.4%, and having the gate and the build output disagree about one file
+is worse than either choice.
+
+**The risk, stated.** `paint.p95 <= 16` passes locally at exactly 16. Event
+Timing quantises paint to 8ms and bounds it below by the frame interval, so on a
+60Hz display the only legal values are 8 and 16 and there is no headroom left in
+that assertion. A shared CI runner that misses a frame reports 24 and the job
+fails. The handler-time assertion is the one with margin: `processing.p95` is
+1.3ms against a budget of 8. If the paint assertion proves flaky on real runners
+the honest fix is to assert what we control — processing — and report paint
+rather than gate on it. It is wired as written rather than pre-loosened, because
+loosening a budget before it has failed once is how budgets stop meaning
+anything.

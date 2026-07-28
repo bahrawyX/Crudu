@@ -50,6 +50,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm build
 
+      # The budget lives in src/perf/budget.ts and the script reads it from
+      # there. Needs the build above, so it cannot move earlier.
+      - name: Bundle budget
+        if: ${{ !cancelled() }}
+        run: pnpm bundle
+
       - name: Upload coverage
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -58,3 +64,58 @@ jobs:
           path: coverage/
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload bundle treemap
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats
+          path: dist/stats.html
+          retention-days: 7
+          if-no-files-found: error
+
+  # Separate job because it downloads a browser, which the job above has no use
+  # for. They run in parallel, so the wall clock is the slower of the two rather
+  # than the sum.
+  e2e:
+    name: e2e, latency and layout budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Chromium only, matching playwright.config.ts. The latency spec drives
+      # keystrokes through CDP for real hardware timestamps, which no other
+      # engine gives us.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Builds and previews the production bundle via the webServer block in
+      # playwright.config.ts. The latency numbers have to come off the shipped
+      # bundle, not an HMR module graph.
+      - name: e2e
+        run: pnpm e2e
+
+      - name: Upload report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
