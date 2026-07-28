@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import type { TargetSet } from '../../adaptive'
 import type { Engine, TestConfig } from '../../engine'
@@ -13,6 +13,7 @@ import { Counter } from './Counter'
 import { FocusOverlay } from './FocusOverlay'
 import { HiddenInput } from './HiddenInput'
 import { Lines } from './Lines'
+import { createRestartPolicy } from './restartPolicy'
 import { createSurfaceStore } from './surfaceStore'
 import type { SurfaceStore } from './surfaceStore'
 import { Trace } from './Trace'
@@ -45,19 +46,19 @@ export function TestScreen({ engine, config, onRestart, targets, onStopDrilling 
     () => (metrics === null ? null : createSurfaceStore(engine, metrics.capacity)),
     [engine, metrics],
   )
-  const firstRun = useRef(true)
+  const [restartPolicy] = useState(() => createRestartPolicy(config))
 
   // A configuration change starts a new test with new words. The engine is
   // reset rather than replaced, so every <Word> subscription survives.
+  //
+  // The policy compares by value, because `config` and `onRestart` are both
+  // fresh objects on any render where App's memo re-ran, and the bigram table
+  // resolving from IndexedDB re-runs it without a single setting having changed.
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false
-
-      return
+    if (restartPolicy.shouldRestart(config)) {
+      onRestart()
     }
-
-    onRestart()
-  }, [config, onRestart])
+  }, [config, onRestart, restartPolicy])
 
   useEffect(() => store?.start(), [store])
 
@@ -135,17 +136,33 @@ function TestBlock({ targets, onStopDrilling }: TestBlockProps) {
     engine.getStatusSnapshot,
   )
 
+  /*
+   * The banner stacks above the config bar rather than replacing it. It used to
+   * replace it, which meant mode, duration, punctuation and numbers were
+   * unreachable for as long as a drill was on, and the only way to change one
+   * was to leave the drill. A drill is the test screen with different words in
+   * it; every setting that applies to a test applies to it too.
+   *
+   * The pairs check matches DrillBanner's own guard, because the attribute below
+   * reserves the banner's height and must not reserve it for nothing.
+   */
+  const drilling = targets !== undefined && onStopDrilling !== undefined && targets.pairs.length > 0
+
   return (
-    <div className="test-block" data-paused={status.status === 'paused' ? 'true' : 'false'}>
-      {targets === undefined || onStopDrilling === undefined ? (
-        <ConfigBar />
-      ) : (
+    <div
+      className="test-block"
+      data-paused={status.status === 'paused' ? 'true' : 'false'}
+      data-drilling={drilling ? 'true' : 'false'}
+    >
+      {drilling ? (
         <DrillBanner
           targets={targets}
           hidden={status.status === 'running'}
           onStop={onStopDrilling}
         />
-      )}
+      ) : null}
+
+      <ConfigBar />
 
       <div className="surface-wrap">
         <div className="surface-viewport">

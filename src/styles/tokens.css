@@ -138,7 +138,29 @@
   --surface-viewport-height: calc(
     var(--leading-surface) * var(--surface-lines) + var(--surface-viewport-slack)
   );
-  --surface-block-top: calc(46vh - (var(--leading-surface) * 1.5 + 60px));
+  /*
+   * Everything stacked above the middle surface line, which docs/DESIGN.md 266
+   * puts at 46% of viewport height.
+   *
+   * This was a flat 60px, which was the config bar alone and was written before
+   * a header existed. The header then went in above it and nothing subtracted
+   * it, so the line sat 59px low on desktop and 130px low on a phone. Measured
+   * per breakpoint rather than assumed, because the config bar wraps: 60 + 60
+   * wide, 87 + 103 once the header takes two rows, 87 + 147 once the bar takes
+   * three. See docs/DECISIONS.md 5.6.
+   */
+  --header-height: 60px;
+  --config-bar-height: 60px;
+  --surface-stack: calc(var(--header-height) + var(--config-bar-height));
+
+  --surface-block-top: calc(46vh - (var(--leading-surface) * 1.5 + var(--surface-stack)));
+
+  /* The drill banner stacks above the config bar rather than replacing it, so
+   * that the chips stay reachable during a drill. Its height is reserved back
+   * out of the block's top margin, because a drill turning on must not move the
+   * one thing the screen exists to show. 29px of chip row plus the 16px below
+   * it; pinned rather than measured, like every other number here. */
+  --drill-banner-height: 45px;
 
   /* ---- Shape ------------------------------------------------------------ */
   --radius: 4px;

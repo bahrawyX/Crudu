@@ -1,24 +1,35 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import type { Page, TestInfo } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import {
+  POPULATED_BIGRAMS,
+  POPULATED_TESTS,
+  assertBlockAnchor,
+  assertNoOverflow,
+  assertTheme,
+  assertVisible,
+  capture,
+  makeDeterministic,
+  seed,
+  selectWordsMode,
+  typeWords,
+} from './helpers'
+import type { Theme } from './helpers'
 
 /**
- * Every view, in both themes, at both ends of the range.
+ * Every screen, in both themes, at both ends of the range.
  *
- * Three batches in a row shipped a defect the unit suite could not see: a `wrong`
- * selector against an `incorrect` state, so mistyped characters had no styling at
- * all; a graph whose canvas was the right size and drew nothing, because uPlot's
- * stylesheet was never imported; and a history row whose badge sat outside the
- * right edge of a phone. Typecheck, lint and four hundred tests were green for
- * all three.
+ * Four batches in a row shipped a defect no unit test could see: a `wrong`
+ * selector against an `incorrect` state; a graph whose canvas was the right size
+ * and drew nothing; a history row whose badge sat outside the right edge of a
+ * phone; and a surface that rendered nothing at all when the font CDN stalled.
+ * Typecheck, lint and four hundred tests were green for every one of them.
  *
- * So this file does not assert pixels — those break on a font update and teach
- * nobody anything. It asserts the three things that were actually wrong:
- *
- *   1. Nothing sticks out of the viewport.
- *   2. The theme that is painted is the theme that was asked for.
- *   3. Everything that should be on screen is on screen, with a size.
- *
- * And it attaches a screenshot of each view, so a human can look.
+ * These are not pixel snapshots. A pixel diff breaks on a font update and
+ * teaches nobody anything; these assert what was actually wrong — nothing
+ * overflows, the painted theme is the one asked for, everything named is on
+ * screen with a size — and attach an image so a human can still look.
  */
 
 const VIEWPORTS = [
@@ -26,186 +37,72 @@ const VIEWPORTS = [
   { name: 'phone', width: 375, height: 812 },
 ] as const
 
-const THEMES = ['light', 'dark'] as const
+const THEMES: readonly Theme[] = ['light', 'dark']
 
-/** Canvas colour per theme, from src/styles/tokens.css. */
-const CANVAS = { light: '#eae6dd', dark: '#16181a' } as const
+/** docs/DESIGN.md 6. The bans that can be checked from the DOM. */
+async function assertBans(page: Page, typing: boolean): Promise<void> {
+  const findings = await page.evaluate((duringTest: boolean) => {
+    const problems: string[] = []
+    const text = document.body.innerText
 
-const FIXED_NOW = 1_753_660_800_000
-
-/**
- * Pins everything that would otherwise differ between runs: the word list, the
- * test ids, and the dates history renders.
- */
-async function makeDeterministic(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    let state = 0x9e_37_79_b9
-
-    Math.random = () => {
-      state = (state + 0x6d_2b_79_f5) | 0
-
-      let t = Math.imul(state ^ (state >>> 15), 1 | state)
-
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-
-      return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
+    // No live WPM during a test. A number that changes while you type pulls the
+    // eye off the text, which is the one thing the screen exists to show.
+    if (duringTest && /\bwpm\b/i.test(text)) {
+      problems.push('the word wpm appears while a test is running')
     }
 
-    const fixed = 1_753_660_800_000
+    // No scroll cues. The surface clips at three lines; no fade, no gradient
+    // mask, no arrow, no scrollbar.
+    const surface = document.querySelector('.surface-viewport')
 
-    Date.now = () => fixed
-  })
-}
+    if (surface !== null) {
+      const style = getComputedStyle(surface)
 
-type SeedTest = {
-  readonly id: string
-  readonly wpm: number
-  readonly accuracy: number
-  readonly daysAgo: number
-  readonly punctuation?: boolean
-  readonly virtual?: boolean
-}
+      if (style.overflow !== 'hidden') {
+        problems.push(`surface overflow is ${style.overflow}, not hidden`)
+      }
 
-/**
- * Writes records straight into IndexedDB in idb-keyval's own shape, so the app
- * boots with a history rather than being driven into one.
- */
-async function seedHistory(page: Page, tests: readonly SeedTest[]): Promise<void> {
-  await page.evaluate(
-    async ({ records, now }) => {
-      await new Promise<void>((resolve, reject) => {
-        const open = indexedDB.open('crudu', 1)
-
-        open.onupgradeneeded = () => {
-          open.result.createObjectStore('store')
-        }
-
-        open.onerror = () => {
-          reject(new Error('cannot open crudu'))
-        }
-
-        open.onsuccess = () => {
-          const transaction = open.result.transaction('store', 'readwrite')
-          const store = transaction.objectStore('store')
-
-          for (const record of records) {
-            store.put(
-              {
-                id: record.id,
-                startedAt: now - record.daysAgo * 86_400_000,
-                config: {
-                  mode: 'words',
-                  value: 25,
-                  punctuation: record.punctuation === true,
-                  numbers: false,
-                  adaptive: false,
-                },
-                inputSource: record.virtual === true ? 'virtual' : 'physical',
-                derived: {
-                  wpm: record.wpm,
-                  raw: record.wpm + 5,
-                  accuracy: record.accuracy,
-                  consistency: 78,
-                  chars: { correct: 120, incorrect: 4, extra: 0, missed: 1 },
-                },
-                log: null,
-              },
-              `test:${record.id}`,
-            )
-          }
-
-          transaction.oncomplete = () => {
-            open.result.close()
-            resolve()
-          }
-        }
-      })
-    },
-    { records: tests, now: FIXED_NOW },
-  )
-}
-
-/**
- * Types word by word, reading each one as it is reached.
- *
- * Reading the whole script up front does not work on a phone: only the lines
- * near the cursor are mounted, so a 25 word test would be typed 20 words deep
- * and never finish.
- */
-async function typeWords(page: Page, count: number, wrongAt: readonly number[] = []): Promise<void> {
-  for (let index = 0; index < count; index += 1) {
-    if ((await page.locator('.results').count()) > 0) {
-      return
-    }
-
-    const word = await page.evaluate(
-      (at: number) => document.querySelectorAll('.word')[at]?.textContent ?? '',
-      index,
-    )
-
-    if (word === '') {
-      return
-    }
-
-    for (const [position, character] of [...word].entries()) {
-      await page.keyboard.press(position === 1 && wrongAt.includes(index) ? 'z' : character)
-    }
-
-    if (index < count - 1) {
-      await page.keyboard.press('Space')
-    }
-  }
-}
-
-async function selectWordsMode(page: Page, count: string): Promise<void> {
-  await page.getByRole('button', { name: 'words', exact: true }).click()
-  await page.getByRole('button', { name: count, exact: true }).click()
-}
-
-/** Nothing may extend past the right edge. This is the history-row bug. */
-async function assertNoOverflow(page: Page, viewportWidth: number): Promise<void> {
-  const offenders = await page.evaluate((limit: number) => {
-    const out: string[] = []
-
-    for (const element of document.querySelectorAll('body *')) {
-      const box = element.getBoundingClientRect()
-
-      if (box.width > 0 && box.right > limit + 1) {
-        out.push(`${element.className || element.tagName} right=${String(Math.round(box.right))}`)
+      if (style.maskImage !== 'none' || style.getPropertyValue('-webkit-mask-image') !== 'none') {
+        problems.push('surface carries a mask, which is a scroll cue')
       }
     }
 
-    return out.slice(0, 5)
-  }, viewportWidth)
+    // No three-equal-card rows. The results secondary stats are bare label and
+    // value pairs; exactly one card exists on the whole screen.
+    const cards = document.querySelectorAll('.card')
 
-  expect(offenders, 'elements past the right edge of the viewport').toEqual([])
+    if (cards.length > 1) {
+      problems.push(`${String(cards.length)} cards on one screen`)
+    }
+
+    for (const row of document.querySelectorAll('.results-secondary, .history-rows')) {
+      const bordered = [...row.children].filter((child) => {
+        const style = getComputedStyle(child)
+
+        return style.borderTopWidth !== '0px' || style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+      })
+
+      if (bordered.length >= 3) {
+        problems.push('a row of three or more bordered or filled cards')
+      }
+    }
+
+    return problems
+  }, typing)
+
+  expect(findings, 'docs/DESIGN.md 6 bans').toEqual([])
 }
 
-/** The theme that is painted is the theme that was asked for. */
-async function assertTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
-  const canvas = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim().toLowerCase(),
+async function assertAxeClean(page: Page, label: string): Promise<void> {
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+
+  const violations = results.violations.map(
+    (violation) => `${violation.id} (${String(violation.nodes.length)}): ${violation.help}`,
   )
 
-  expect(canvas, `--canvas under the ${theme} theme`).toBe(CANVAS[theme])
-}
-
-/** Everything named is on screen and has a size. This is the invisible graph. */
-async function assertVisible(page: Page, selectors: readonly string[]): Promise<void> {
-  for (const selector of selectors) {
-    const box = await page.locator(selector).first().boundingBox()
-
-    expect(box, `${selector} is not rendered`).not.toBeNull()
-    expect(box?.width ?? 0, `${selector} has no width`).toBeGreaterThan(0)
-    expect(box?.height ?? 0, `${selector} has no height`).toBeGreaterThan(0)
-  }
-}
-
-async function capture(page: Page, info: TestInfo, name: string): Promise<void> {
-  await info.attach(name, {
-    body: await page.screenshot({ fullPage: true }),
-    contentType: 'image/png',
-  })
+  expect(violations, `axe on ${label}`).toEqual([])
 }
 
 for (const viewport of VIEWPORTS) {
@@ -218,8 +115,6 @@ for (const viewport of VIEWPORTS) {
 
       test.beforeEach(async ({ page }) => {
         await makeDeterministic(page)
-        // Reduced motion holds the entrance sequence still, so a screenshot
-        // taken mid-animation is not what fails.
         await page.emulateMedia({ reducedMotion: 'reduce' })
       })
 
@@ -228,15 +123,35 @@ for (const viewport of VIEWPORTS) {
         await page.waitForSelector('.surface-line')
 
         await assertTheme(page, theme)
-        await assertVisible(page, ['.config-bar', '.surface-line', '.caret', '.trace-track', '.hint'])
+        await assertVisible(page, [
+          '.chrome',
+          '.nav',
+          '.config-bar',
+          '.surface-line',
+          '.caret',
+          '.trace-track',
+          '.hint',
+        ])
+        await assertBlockAnchor(page)
         await assertNoOverflow(page, viewport.width)
+        await assertBans(page, false)
+        await assertAxeClean(page, 'test idle')
         await capture(page, info, 'test-idle')
 
         await typeWords(page, 3, [1])
 
-        await assertVisible(page, ['.counter', '.char[data-state="correct"]', '.char[data-state="incorrect"]'])
+        await assertVisible(page, [
+          '.counter',
+          '.char[data-state="correct"]',
+          '.char[data-state="incorrect"]',
+        ])
         await expect(page.locator('.config-bar')).toHaveAttribute('data-hidden', 'true')
         await assertNoOverflow(page, viewport.width)
+        await assertBans(page, true)
+        // The faded config bar and header are still in the tree while typing, and
+        // a control at opacity 0 is exactly where a contrast rule stops applying
+        // and a focus-order rule does not.
+        await assertAxeClean(page, 'test active')
         await capture(page, info, 'test-active')
       })
 
@@ -248,21 +163,17 @@ for (const viewport of VIEWPORTS) {
         await page.waitForSelector('.results')
 
         await assertTheme(page, theme)
-        await assertVisible(page, ['.results-number', '.wpm-graph canvas', '.results-secondary', '.card'])
+        await assertVisible(page, ['.results-number', '.wpm-graph canvas', '.card'])
         await expect(page.locator('.card')).toContainText('Calibrating')
         await assertNoOverflow(page, viewport.width)
+        await assertBans(page, false)
+        await assertAxeClean(page, 'results calibrating')
         await capture(page, info, 'results-calibrating')
       })
 
-      test('results with history and a personal best', async ({ page }, info) => {
+      test('results with history, a personal best and the weakness card', async ({ page }, info) => {
         await page.goto('/')
-        await seedHistory(page, [
-          { id: 'a', wpm: 62, accuracy: 97, daysAgo: 1 },
-          { id: 'b', wpm: 58, accuracy: 95, daysAgo: 2 },
-          { id: 'c', wpm: 64, accuracy: 98, daysAgo: 3 },
-          { id: 'd', wpm: 41, accuracy: 93, daysAgo: 1, virtual: true },
-          { id: 'e', wpm: 70, accuracy: 96, daysAgo: 5, punctuation: true },
-        ])
+        await seed(page, POPULATED_TESTS, POPULATED_BIGRAMS)
         await page.reload()
         await page.waitForSelector('.surface-line')
         await selectWordsMode(page, '25')
@@ -274,8 +185,126 @@ for (const viewport of VIEWPORTS) {
         await expect(page.locator('.delta').first()).toContainText('7 day median')
         await expect(page.locator('.tag[data-kind="virtual"]').first()).toBeVisible()
         await assertNoOverflow(page, viewport.width)
+        await assertBans(page, false)
+        await assertAxeClean(page, 'results with history')
         await capture(page, info, 'results-history')
+      })
+
+      test('weakness report', async ({ page }, info) => {
+        await page.goto('/')
+        await seed(page, POPULATED_TESTS, POPULATED_BIGRAMS)
+        await page.reload()
+        await page.waitForSelector('.surface-line')
+        await page.getByRole('button', { name: 'Weaknesses' }).click()
+        await page.waitForSelector('.weakness-report')
+
+        await assertTheme(page, theme)
+        await assertVisible(page, ['.report-row', '.report-track', '.report-bar', '.report-note'])
+        await expect(page.locator('.report-note', { hasText: 'Needs more data' }).first()).toBeVisible()
+        await assertNoOverflow(page, viewport.width)
+        await assertBans(page, false)
+        await assertAxeClean(page, 'weakness report')
+        await capture(page, info, 'weakness-report')
+      })
+
+      test('progress, populated and empty', async ({ page }, info) => {
+        await page.goto('/')
+        await page.waitForSelector('.surface-line')
+        await page.getByRole('button', { name: 'Progress' }).click()
+
+        // Nothing plotted until three tests exist, and the empty state says so.
+        await expect(page.locator('.empty-title')).toHaveText('Nothing plotted yet.')
+        await expect(page.locator('.empty-body')).toHaveText(
+          'Run three tests and your first line appears here.',
+        )
+        await assertNoOverflow(page, viewport.width)
+        await assertAxeClean(page, 'progress empty')
+        await capture(page, info, 'progress-empty')
+
+        await seed(page, POPULATED_TESTS, POPULATED_BIGRAMS)
+        await page.reload()
+        await page.waitForSelector('.surface-line')
+        await page.getByRole('button', { name: 'Progress' }).click()
+        await page.waitForSelector('.progress-chart canvas')
+
+        await assertTheme(page, theme)
+        await assertVisible(page, ['.progress-chart canvas', '.progress-axis'])
+        await assertNoOverflow(page, viewport.width)
+        await assertAxeClean(page, 'progress populated')
+        await capture(page, info, 'progress-populated')
+      })
+
+      test('drill', async ({ page }, info) => {
+        await page.goto('/')
+        await seed(page, POPULATED_TESTS, POPULATED_BIGRAMS)
+        await page.reload()
+        await page.waitForSelector('.drill-banner')
+
+        await assertTheme(page, theme)
+        await assertVisible(page, ['.drill-banner', '.drill-pair', '.surface-line'])
+        await expect(page.locator('.drill-banner')).toContainText('Drilling')
+        await assertNoOverflow(page, viewport.width)
+        await assertBans(page, false)
+        await assertAxeClean(page, 'drill')
+        await capture(page, info, 'drill')
+      })
+
+      test('settings placeholder', async ({ page }, info) => {
+        await page.goto('/')
+        await page.waitForSelector('.surface-line')
+        await page.getByRole('button', { name: 'Settings' }).click()
+        await page.waitForSelector('.empty-state')
+
+        await assertTheme(page, theme)
+        await assertVisible(page, ['.empty-title', '.empty-body', '.button-primary'])
+        await assertNoOverflow(page, viewport.width)
+        await assertAxeClean(page, 'settings')
+        await capture(page, info, 'settings')
+      })
+
+      test('tab then enter restarts', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForSelector('.surface-line')
+        await typeWords(page, 1)
+
+        const before = await page.locator('.char[data-state="correct"]').count()
+
+        expect(before).toBeGreaterThan(0)
+
+        // The restart control is first in tab order and reveals itself on focus.
+        await page.keyboard.press('Tab')
+        await expect(page.locator('.restart-control')).toBeFocused()
+        await page.keyboard.press('Enter')
+
+        await expect(page.locator('.char[data-state="correct"]')).toHaveCount(0)
       })
     })
   }
 }
+
+/**
+ * The font is served by a CDN, and document.fonts.ready does not resolve while
+ * that request is in flight. Before the timeout the surface rendered nothing at
+ * all, indefinitely, on a slow or blocked network — found by this file on its
+ * first run and fixed by measuring the fallback and rendering anyway.
+ */
+test.describe('network degraded', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('renders the surface with the font CDN blocked', async ({ page }, info) => {
+    await makeDeterministic(page)
+    await page.route('**://fonts.googleapis.com/**', async (route) => route.abort())
+    await page.route('**://fonts.gstatic.com/**', async (route) => route.abort())
+
+    await page.goto('/')
+
+    await expect(page.locator('.surface-line').first()).toBeVisible({ timeout: 10_000 })
+    await assertVisible(page, ['.surface-line', '.caret', '.config-bar'])
+
+    // And it is still usable, not merely present.
+    await typeWords(page, 2)
+    await expect(page.locator('.char[data-state="correct"]').first()).toBeVisible()
+
+    await capture(page, info, 'font-blocked')
+  })
+})

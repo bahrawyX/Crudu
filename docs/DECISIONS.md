@@ -684,10 +684,20 @@ from the canvas at 4.81:1 and by hue.
 differentiator had no surface saying you were using it, which is how a feature
 nobody notices becomes a feature nobody values.
 
-**Decision.** A banner where the config bar sits, in the same 13px muted-strong
-register: the word `Drilling`, the first five targeted pairs as accent-tinted
-mono chips at the size the results card uses for a pair, and one text button back
-to plain English. It fades on the first keystroke like everything else.
+**Decision.** A banner directly above the config bar, in the same 13px
+muted-strong register: the word `Drilling`, the first five targeted pairs as
+accent-tinted mono chips at the size the results card uses for a pair, and one
+text button back to plain English. It fades on the first keystroke like
+everything else.
+
+**Above the config bar, not in place of it.** It first shipped replacing the bar,
+which read tidily and was wrong: mode, duration, punctuation and numbers became
+unreachable for as long as a drill was on, and the only way to change a duration
+was to leave the drill and go back into it. A drill is the test screen with
+different words in it, so every setting that applies to a test applies to a drill
+too. The banner's height is reserved back out of the block's top margin
+(`--drill-banner-height`), so turning a drill on adds a row of information
+without moving the text.
 
 **Why a banner and not a screen.** A drill *is* the test screen with different
 words in it. A second surface would mean two implementations of the caret, the
@@ -702,3 +712,127 @@ it exactly.
 
 **Why.** "Repeat the identical test" has to mean identical, or the second run
 compares your typing against a different draw and the comparison says nothing.
+
+### 5.5 The narrow header wraps the nav onto its own row
+
+**Mine, not the design's.** `docs/DESIGN.md` 3.8 lists the sub-620px header as
+unspecified. The header shipped in 5.1 with only the wide layout, and it
+overflowed every phone viewport: `nav right=416` against a 375px screen.
+
+**Decision.** Below 620px the header wraps. The wordmark centres on the first
+row, the four nav entries take the full width of the second and distribute with
+`space-between`. Padding steps from `16px 24px` to `12px 16px` and the nav gap
+from 20px to 10px. Every value is an existing token. The wide layout is
+untouched.
+
+**Why not one row.** It does not fit, and that is arithmetic rather than taste.
+The four labels measure 247px of text before a single gap is added, the wordmark
+is 60px, and a 320px viewport leaves 288px of content box once the narrowest
+sensible padding is taken. Even at zero gaps a single row needs 307px. The only
+way to hold one row is to take the label below the design's 13px, which trades a
+specified value for an unspecified one in the wrong direction.
+
+**Why not a hamburger.** Four entries. A menu that hides four words behind a tap
+costs a tap, an animation, a focus trap and an aria-expanded contract, to save
+28px of vertical space. The second row is cheaper for the user and cheaper to
+maintain.
+
+**Cost.** The header is 87px tall on a phone instead of 60px. That is 27px of
+vertical space on the screen that can least afford it, and it is why the block
+offset in 5.6 is derived from the real header height rather than assumed.
+
+### 5.6 The block offset is derived, not assumed
+
+**Correction.** `docs/DESIGN.md` 266 puts the middle of the three surface lines
+at 46% of viewport height, and the margin that achieves it subtracted a flat
+`60px`. That 60px was the config bar, and it was written when nothing sat above
+the config bar. The header added in 5.1 went in above it and nothing subtracted
+it, so the line the whole screen exists to show sat 59px low on desktop and
+130px low on a phone — measured, not estimated.
+
+**Decision.** The margin subtracts `--surface-stack`, which is
+`--header-height + --config-bar-height`, both pinned per breakpoint:
+
+| | header | config bar | sum |
+| --- | --- | --- | --- |
+| above 620px | 60 | 60 | 120 |
+| 620px to 336px | 87 | 103 | 190 |
+| 335px and below | 87 | 147 | 234 |
+
+**Why measured constants rather than a layout read.** Invariant 3 forbids
+reading layout on the keystroke path, and this is a mount-time value, so a
+`getBoundingClientRect` here would not break it. It would still be the wrong
+shape: the surface is positioned by arithmetic everywhere else, from the caret
+column to the line scroll, and one measured offset in the middle of that would
+be the only number nobody could predict from the tokens. The values above are
+reproducible from the stylesheet.
+
+**Cost.** The config bar wraps, so the sum is a step function and each step is a
+breakpoint that has to be kept honest. If a chip is ever added to the config bar
+these numbers move, which is why the browser check asserts the position rather
+than trusting them — and that is not hypothetical. 5.7 removed two dividers from
+the narrow bar, which moved the third-row wrap from between 360px and 350px down
+to between 336px and 335px. The check caught the stale breakpoint immediately.
+
+**Verified.** The middle line lands within 1px of 46vh at 1440, 900, 700, 620,
+480, 375, 360, 340 and 320px. It was 52.6vh and 62.1vh before.
+
+### 5.7 The narrow config bar drops its dividers
+
+**Mine, not the design's.** `docs/DESIGN.md` 269 specifies three groups separated
+by 1px x 14px `--hairline` dividers. It specifies that for the wide bar; the
+narrow bar wraps, and a wrapped bar is not a case the prototype covers.
+
+**The defect.** Below 620px the bar wraps to two rows and the second divider
+landed at the end of the first row, after `120`, with nothing to its right. A
+separator with one side is not a separator — it reads as a fourth group that
+lost its contents.
+
+**Decision.** Below 620px the dividers are not rendered. The 16px row gap carries
+the grouping on its own, which it can, because a wrapped row is already a visible
+break.
+
+**Why not keep them and hide the trailing one.** CSS cannot ask whether a flex
+item ended a row. Every alternative that keeps a divider in the flow moves the
+problem rather than solving it: attaching it to the group ahead leaves the
+hairline trailing `120` exactly as before, and attaching it to the group behind
+opens the second row with a leading hairline instead. The information a divider
+carries is "these two things are side by side", and once they are not, there is
+nothing to say.
+
+
+### 5.8 The performance gates run in CI, in a second job
+
+**Decision.** `.github/workflows/ci.yml` gains a bundle budget step in the
+existing job and a second job that runs the whole Playwright suite, including
+the latency and layout specs from phase 2. This closes 0.9, which deferred e2e
+out of phase 0 on the grounds that phase 5 would add the regression that
+genuinely needs a browser.
+
+**Why two jobs.** The e2e job downloads Chromium and the verify job has no use
+for it. Split, they run in parallel and the wall clock is the slower of the two
+rather than the sum.
+
+**The bundle number is gzip of the emitted bytes, not the sum of the modules.**
+`rollup-plugin-visualizer` reports a `gzipLength` per module and adding those up
+is not the size of the bundle: gzip does not compose, and one chunk sharing a
+dictionary compresses better than its pieces do apart. The visualizer output is
+what attributes a failure; the gate reads the real files. What counts as
+"initial" comes from the emitted `index.html` — the module script plus anything
+modulepreloaded — so that a later route split adds lazy chunks the user does not
+wait for without them silently entering the budget.
+
+kB is 1000 bytes here, matching what `vite build` prints. The two conventions
+differ by 2.4%, and having the gate and the build output disagree about one file
+is worse than either choice.
+
+**The risk, stated.** `paint.p95 <= 16` passes locally at exactly 16. Event
+Timing quantises paint to 8ms and bounds it below by the frame interval, so on a
+60Hz display the only legal values are 8 and 16 and there is no headroom left in
+that assertion. A shared CI runner that misses a frame reports 24 and the job
+fails. The handler-time assertion is the one with margin: `processing.p95` is
+1.3ms against a budget of 8. If the paint assertion proves flaky on real runners
+the honest fix is to assert what we control — processing — and report paint
+rather than gate on it. It is wired as written rather than pre-loosened, because
+loosening a budget before it has failed once is how budgets stop meaning
+anything.

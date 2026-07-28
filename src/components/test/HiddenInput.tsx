@@ -18,6 +18,22 @@ import { useTestSurface } from './context'
  * throws away — so detection has to happen on the engine side of the call, not
  * on this one. SPEC 1.7, DECISIONS 1.2.
  */
+const INTERACTIVE = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+function isInteractive(node: Element | null): boolean {
+  return node !== null && node.matches(INTERACTIVE)
+}
+
+/**
+ * Keys that belong to whatever control has focus rather than to the test.
+ *
+ * The distinction is the key, not the focus. Clicking a config chip with the
+ * mouse leaves focus on the chip, and the next letter typed has to come back to
+ * the test — that is the whole "press any key to resume" behaviour. But Enter on
+ * a focused button is meant for the button.
+ */
+const CONTROL_KEYS = new Set(['Enter', ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
+
 export function HiddenInput() {
   const { engine } = useTestSurface()
   const ref = useRef<HTMLInputElement | null>(null)
@@ -43,10 +59,24 @@ export function HiddenInput() {
 
     // Anywhere on the page, any key: come back. The design says "press any key
     // to resume", and the engine resumes the clock on the keystroke itself.
-    const onWindowKeyDown = (): void => {
-      if (document.activeElement !== element) {
-        element.focus()
+    //
+    // With two exceptions, both of which were trapping the keyboard. Tab is
+    // navigation, not typing: pulling focus back on it meant focus left the
+    // input and the next Tab dragged it straight home, so no control in the app
+    // was reachable from the keyboard at all. And Enter on a button someone has
+    // deliberately tabbed to belongs to that button, which is why Tab then Enter
+    // on the restart control used to refocus the input and leave the test
+    // running rather than restarting it.
+    const onWindowKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Tab' || document.activeElement === element) {
+        return
       }
+
+      if (isInteractive(document.activeElement) && CONTROL_KEYS.has(event.key)) {
+        return
+      }
+
+      element.focus()
     }
 
     element.addEventListener('beforeinput', onBeforeInput)

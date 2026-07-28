@@ -77,6 +77,42 @@ async function lineCount(page: Page): Promise<number> {
 }
 
 /**
+ * Counts the times the surface's DOM grew, which is the thing a layout is
+ * allowed to follow.
+ *
+ * Counting lines is not enough. The engine appends words in chunks, and a chunk
+ * lands inside lines that already exist — over a thirty second run the word
+ * count climbs 50, 59, 69, 79 while only four new lines mount. Each of those is
+ * new DOM and each is entitled to one layout, so a bound built on line count
+ * alone is short by however many chunks arrived, which is why this test read 5,
+ * 6 and 7 layouts against a bound of 5 on three consecutive runs.
+ *
+ * A MutationObserver callback is batched per microtask, so one React commit that
+ * adds nodes produces one tick here.
+ */
+async function trackSurfaceGrowth(page: Page): Promise<() => Promise<number>> {
+  await page.evaluate(() => {
+    const surface = document.querySelector('.surface-lines')
+    const counter = { grew: 0 }
+
+    ;(window as unknown as { __growth: { grew: number } }).__growth = counter
+
+    if (surface === null) {
+      return
+    }
+
+    new MutationObserver((records) => {
+      if (records.some((record) => record.addedNodes.length > 0)) {
+        counter.grew += 1
+      }
+    }).observe(surface, { childList: true, subtree: true })
+  })
+
+  return async () =>
+    page.evaluate(() => (window as unknown as { __growth: { grew: number } }).__growth.grew)
+}
+
+/**
  * Types the words that are on screen, correctly, at a hundred words a minute.
  *
  * The script is read once up front rather than re-read per keystroke. Asking
@@ -148,6 +184,24 @@ test.describe('test surface', () => {
   test('thirty seconds of typing lays out only for what it mounts', async ({ page }) => {
     await page.goto('/?perf')
     await page.waitForSelector('.surface-line')
+
+    /*
+     * Sixty seconds, not the default thirty.
+     *
+     * This measured nothing for four batches. Typing for thirty seconds ended a
+     * thirty second test, so the window being traced closed over the results
+     * screen mounting: uPlot's canvas, the history rows, the whole of it. The
+     * surface count went 5 to 8 as lines arrived and then to 0 as the results
+     * replaced them, which made `after - before` -5 and the assertion
+     * `28 <= -4` — unsatisfiable, so it reported a broken surface no matter how
+     * the surface behaved. The Layout events it was counting were mostly the
+     * results screen.
+     *
+     * A longer test keeps the surface mounted for the whole window, so what is
+     * traced is typing and nothing else.
+     */
+    await page.getByRole('button', { name: '60', exact: true }).click()
+    await page.waitForSelector('.surface-line')
     await removeCounter(page)
 
     // Same settling as above: the idle-to-running transition is chrome, and it
@@ -157,6 +211,7 @@ test.describe('test surface', () => {
     await page.waitForTimeout(1_500)
 
     const before = await lineCount(page)
+    const growth = await trackSurfaceGrowth(page)
     const trace = await collectTrace(page)
 
     await typeTheScreen(page, 30)
@@ -165,19 +220,29 @@ test.describe('test surface', () => {
     const after = await lineCount(page)
     const layouts = events.filter((event) => event.name === 'Layout')
     const mounted = after - before
+    const grew = await growth()
 
     // eslint-disable-next-line no-console -- this number is the deliverable
     console.log(
       `[layout] ${String(events.length)} trace events, ${String(layouts.length)} Layout, ` +
-        `${String(mounted)} lines mounted`,
+        `${String(mounted)} lines mounted, ${String(grew)} commits that grew the DOM`,
     )
 
-    // A line arriving on screen is new DOM, and new DOM is laid out. That is
-    // unavoidable and it is not on the keystroke path: it happens when the
-    // cursor reaches a line that did not exist yet.
-    expect(layouts.length, 'no layout beyond the lines that were mounted').toBeLessThanOrEqual(
-      mounted + 1,
+    // The guard the old version lacked. If the test ever ends inside the window
+    // again, this says so in one line instead of quietly producing a negative
+    // baseline that no layout count can satisfy.
+    expect(await page.locator('.results').count(), 'the test ended inside the traced window').toBe(
+      0,
     )
+    expect(mounted, 'lines only ever mount, so this cannot be negative').toBeGreaterThanOrEqual(0)
+
+    // New DOM is laid out. That is unavoidable, and it is not on the keystroke
+    // path: it happens when the cursor reaches a line that did not exist yet, or
+    // when the engine appends the next chunk of words. The claim being made is
+    // that nothing *else* lays out — that 240 keystrokes add nothing of their
+    // own. The sibling test above holds the stronger line: a keystroke that
+    // mounts nothing causes zero layout at all.
+    expect(layouts.length, 'no layout beyond the DOM that arrived').toBeLessThanOrEqual(grew + 1)
   })
 
   test('reports keydown to paint within the budget', async ({ page }) => {
