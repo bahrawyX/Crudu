@@ -75,6 +75,7 @@ export function App() {
   const [view, setView] = useState<View>('test')
   const lastWords = useRef<readonly string[]>([])
   const persistedId = useRef<string | null>(null)
+  const restartControl = useRef<HTMLButtonElement | null>(null)
 
   const drilling = prefs.adaptive && tests.length >= CALIBRATION_TESTS
 
@@ -161,6 +162,24 @@ export function App() {
       if (event.key === 'Tab' && event.shiftKey) {
         event.preventDefault()
         repeat()
+
+        return
+      }
+
+      /*
+       * The restart control is first in the document, and the typing input is
+       * last, so a plain Tab off the input left the document rather than
+       * reaching it. Sending the first Tab to the front is what "first in tab
+       * order" was always meant to mean; from there traversal carries on
+       * normally into the header and the chips.
+       */
+      if (
+        event.key === 'Tab' &&
+        restartControl.current !== null &&
+        document.activeElement?.classList.contains('hidden-input') === true
+      ) {
+        event.preventDefault()
+        restartControl.current.focus()
       }
     }
 
@@ -216,7 +235,7 @@ export function App() {
        * and a permanent one would put a second thing on a screen whose whole
        * argument is that there is only the text.
        */}
-      <button type="button" className="restart-control" onClick={restart}>
+      <button type="button" className="restart-control" ref={restartControl} onClick={restart}>
         Restart test
       </button>
       <Header current={screen} hidden={status.status === 'running'} onNavigate={setView} />
