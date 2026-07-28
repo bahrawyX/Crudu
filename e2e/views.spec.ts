@@ -148,6 +148,10 @@ for (const viewport of VIEWPORTS) {
         await expect(page.locator('.config-bar')).toHaveAttribute('data-hidden', 'true')
         await assertNoOverflow(page, viewport.width)
         await assertBans(page, true)
+        // The faded config bar and header are still in the tree while typing, and
+        // a control at opacity 0 is exactly where a contrast rule stops applying
+        // and a focus-order rule does not.
+        await assertAxeClean(page, 'test active')
         await capture(page, info, 'test-active')
       })
 
@@ -243,6 +247,19 @@ for (const viewport of VIEWPORTS) {
         await assertBans(page, false)
         await assertAxeClean(page, 'drill')
         await capture(page, info, 'drill')
+      })
+
+      test('settings placeholder', async ({ page }, info) => {
+        await page.goto('/')
+        await page.waitForSelector('.surface-line')
+        await page.getByRole('button', { name: 'Settings' }).click()
+        await page.waitForSelector('.empty-state')
+
+        await assertTheme(page, theme)
+        await assertVisible(page, ['.empty-title', '.empty-body', '.button-primary'])
+        await assertNoOverflow(page, viewport.width)
+        await assertAxeClean(page, 'settings')
+        await capture(page, info, 'settings')
       })
 
       test('tab then enter restarts', async ({ page }) => {
