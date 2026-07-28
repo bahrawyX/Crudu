@@ -756,8 +756,8 @@ it, so the line the whole screen exists to show sat 59px low on desktop and
 | | header | config bar | sum |
 | --- | --- | --- | --- |
 | above 620px | 60 | 60 | 120 |
-| 620px to 356px | 87 | 103 | 190 |
-| 355px and below | 87 | 147 | 234 |
+| 620px to 336px | 87 | 103 | 190 |
+| 335px and below | 87 | 147 | 234 |
 
 **Why measured constants rather than a layout read.** Invariant 3 forbids
 reading layout on the keystroke path, and this is a mount-time value, so a
@@ -768,10 +768,35 @@ be the only number nobody could predict from the tokens. The values above are
 reproducible from the stylesheet.
 
 **Cost.** The config bar wraps, so the sum is a step function and each step is a
-breakpoint that has to be kept honest. The step between 360px and 350px was
-found by measurement and the breakpoint sits between the two. If a chip is ever
-added to the config bar these numbers move, which is why the browser check
-asserts the position rather than trusting them.
+breakpoint that has to be kept honest. If a chip is ever added to the config bar
+these numbers move, which is why the browser check asserts the position rather
+than trusting them — and that is not hypothetical. 5.7 removed two dividers from
+the narrow bar, which moved the third-row wrap from between 360px and 350px down
+to between 336px and 335px. The check caught the stale breakpoint immediately.
 
 **Verified.** The middle line lands within 1px of 46vh at 1440, 900, 700, 620,
 480, 375, 360, 340 and 320px. It was 52.6vh and 62.1vh before.
+
+### 5.7 The narrow config bar drops its dividers
+
+**Mine, not the design's.** `docs/DESIGN.md` 269 specifies three groups separated
+by 1px x 14px `--hairline` dividers. It specifies that for the wide bar; the
+narrow bar wraps, and a wrapped bar is not a case the prototype covers.
+
+**The defect.** Below 620px the bar wraps to two rows and the second divider
+landed at the end of the first row, after `120`, with nothing to its right. A
+separator with one side is not a separator — it reads as a fourth group that
+lost its contents.
+
+**Decision.** Below 620px the dividers are not rendered. The 16px row gap carries
+the grouping on its own, which it can, because a wrapped row is already a visible
+break.
+
+**Why not keep them and hide the trailing one.** CSS cannot ask whether a flex
+item ended a row. Every alternative that keeps a divider in the flow moves the
+problem rather than solving it: attaching it to the group ahead leaves the
+hairline trailing `120` exactly as before, and attaching it to the group behind
+opens the second row with a leading hairline instead. The information a divider
+carries is "these two things are side by side", and once they are not, there is
+nothing to say.
+

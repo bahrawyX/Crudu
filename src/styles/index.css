@@ -957,6 +957,17 @@
     --config-bar-height: 103px;
   }
 
+  /*
+   * A separator between two groups has nothing to separate when the groups are
+   * on different rows. The bar wraps below 620px and left a hairline dangling
+   * after `120` at the end of the first row, which reads as a fourth group that
+   * lost its contents. CSS cannot ask whether a flex item ended a row, so the
+   * dividers go entirely and the row gap carries the grouping instead.
+   */
+  .config-divider {
+    display: none;
+  }
+
   .chrome {
     flex-wrap: wrap;
     justify-content: center;
@@ -971,9 +982,12 @@
   }
 }
 
-/* The config bar takes a third row somewhere between 360px and 350px, measured.
- * The breakpoint sits between the two rather than on either. */
-@media (max-width: 355px) {
+/* The config bar takes a third row somewhere between 340px and 335px, measured.
+ * The breakpoint sits between the two rather than on either. It was between
+ * 360px and 350px until the narrow dividers went: two fewer flex items on the
+ * row moved the wrap down, which is exactly the coupling DECISIONS 5.6 warns
+ * about and why e2e asserts the anchor rather than trusting these numbers. */
+@media (max-width: 335px) {
   :root {
     --config-bar-height: 147px;
   }
