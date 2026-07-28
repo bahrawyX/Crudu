@@ -136,17 +136,33 @@ function TestBlock({ targets, onStopDrilling }: TestBlockProps) {
     engine.getStatusSnapshot,
   )
 
+  /*
+   * The banner stacks above the config bar rather than replacing it. It used to
+   * replace it, which meant mode, duration, punctuation and numbers were
+   * unreachable for as long as a drill was on, and the only way to change one
+   * was to leave the drill. A drill is the test screen with different words in
+   * it; every setting that applies to a test applies to it too.
+   *
+   * The pairs check matches DrillBanner's own guard, because the attribute below
+   * reserves the banner's height and must not reserve it for nothing.
+   */
+  const drilling = targets !== undefined && onStopDrilling !== undefined && targets.pairs.length > 0
+
   return (
-    <div className="test-block" data-paused={status.status === 'paused' ? 'true' : 'false'}>
-      {targets === undefined || onStopDrilling === undefined ? (
-        <ConfigBar />
-      ) : (
+    <div
+      className="test-block"
+      data-paused={status.status === 'paused' ? 'true' : 'false'}
+      data-drilling={drilling ? 'true' : 'false'}
+    >
+      {drilling ? (
         <DrillBanner
           targets={targets}
           hidden={status.status === 'running'}
           onStop={onStopDrilling}
         />
-      )}
+      ) : null}
+
+      <ConfigBar />
 
       <div className="surface-wrap">
         <div className="surface-viewport">

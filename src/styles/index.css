@@ -187,11 +187,18 @@
     align-items: stretch;
     width: 100%;
     max-width: var(--surface-width);
-    /* The middle of the three lines sits at 46% of viewport height. */
-    margin-top: calc(46vh - (var(--line-height) * 1.5 + 60px));
+    /* The middle of the three lines sits at 46% of viewport height. Anything
+     * stacked above the surface is reserved back out of this margin, so the
+     * text does not move when it appears. */
+    --block-offset: 0px;
+    margin-top: calc(46vh - (var(--line-height) * 1.5 + 60px) - var(--block-offset));
     transition:
       filter var(--duration-fade) linear,
       opacity var(--duration-fade) linear;
+  }
+
+  .test-block[data-drilling='true'] {
+    --block-offset: var(--drill-banner-height);
   }
 
   .test-block[data-paused='true'] {
@@ -635,6 +642,10 @@
     flex-wrap: wrap;
     gap: var(--space-12);
     padding-bottom: var(--space-16);
+    /* min-height, not height. The reservation above assumes this much; if a
+     * narrow viewport ever wraps the pairs onto a second row the block drifts
+     * down a little, which is better than clipping the row. */
+    min-height: var(--drill-banner-height);
     transition: opacity var(--config-fade, 180ms) linear;
   }
 

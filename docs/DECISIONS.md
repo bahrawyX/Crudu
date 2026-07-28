@@ -684,10 +684,20 @@ from the canvas at 4.81:1 and by hue.
 differentiator had no surface saying you were using it, which is how a feature
 nobody notices becomes a feature nobody values.
 
-**Decision.** A banner where the config bar sits, in the same 13px muted-strong
-register: the word `Drilling`, the first five targeted pairs as accent-tinted
-mono chips at the size the results card uses for a pair, and one text button back
-to plain English. It fades on the first keystroke like everything else.
+**Decision.** A banner directly above the config bar, in the same 13px
+muted-strong register: the word `Drilling`, the first five targeted pairs as
+accent-tinted mono chips at the size the results card uses for a pair, and one
+text button back to plain English. It fades on the first keystroke like
+everything else.
+
+**Above the config bar, not in place of it.** It first shipped replacing the bar,
+which read tidily and was wrong: mode, duration, punctuation and numbers became
+unreachable for as long as a drill was on, and the only way to change a duration
+was to leave the drill and go back into it. A drill is the test screen with
+different words in it, so every setting that applies to a test applies to a drill
+too. The banner's height is reserved back out of the block's top margin
+(`--drill-banner-height`), so turning a drill on adds a row of information
+without moving the text.
 
 **Why a banner and not a screen.** A drill *is* the test screen with different
 words in it. A second surface would mean two implementations of the caret, the

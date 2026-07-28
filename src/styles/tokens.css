@@ -140,6 +140,13 @@
   );
   --surface-block-top: calc(46vh - (var(--leading-surface) * 1.5 + 60px));
 
+  /* The drill banner stacks above the config bar rather than replacing it, so
+   * that the chips stay reachable during a drill. Its height is reserved back
+   * out of the block's top margin, because a drill turning on must not move the
+   * one thing the screen exists to show. 29px of chip row plus the 16px below
+   * it; pinned rather than measured, like every other number here. */
+  --drill-banner-height: 45px;
+
   /* ---- Shape ------------------------------------------------------------ */
   --radius: 4px;
   --hairline-width: 1px;
